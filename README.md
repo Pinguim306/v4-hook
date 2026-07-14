@@ -30,7 +30,29 @@ O supply de **4663** é uma homenagem à chain: `4663` é o chain ID da Robinhoo
 | Gás | ETH (sub-centavo, blocos ~0,1s) |
 | DEX | Uniswap v4 (live na chain) |
 
+## Estrutura do repositório
+
+```
+contracts/   Foundry — QuiverHook, QuiverMirror, QuiverArt, BaseHook, testes e scripts de deploy
+web/         Site de lançamento (Vite + React + TypeScript + viem), estático/IPFS-ready
+docs/        Análise do Prism e plano de entrega
+.github/     CI (forge build/test + build do site)
+```
+
+## Estado atual
+
+| Fase | Estado |
+| --- | --- |
+| 1 · Fundação do repositório | ✅ Foundry + web + CI |
+| 2 · Contratos | ✅ Hook, Mirror, Art, BaseHook (compilam) |
+| 3 · Testes | ✅ 22 testes unitários (mock v4) passando · suíte e2e vs PoolManager/POSM reais reservada para CI |
+| 4 · Deploy | ✅ scripts (CREATE2 + mineração de hook + seed) — **pendente P0**: endereços do v4 na chain 4663 |
+| 5 · Site | ✅ build de produção funcional |
+| 6 · Lançamento/comms | ⏳ após deploy em testnet/mainnet |
+
 ## Documentação
 
+- [Contratos](contracts/README.md) — como buildar, testar e fazer deploy
+- [Site](web/README.md) — como rodar e configurar
 - [Análise do projeto Prism](docs/ANALISE-PRISM.md) — estrutura, estratégia e contratos do projeto de referência
 - [Plano de entrega](docs/PLANO-DE-ENTREGA.md) — fases, entregáveis, riscos e cronograma do Quiver
