@@ -46,7 +46,7 @@ docs/        Análise do Prism e plano de entrega
 | 1 · Fundação do repositório | ✅ Foundry + web + CI |
 | 2 · Contratos | ✅ Hook, Mirror, Art, BaseHook (compilam) |
 | 3 · Testes | ✅ 22 testes unitários (mock v4) passando · suíte e2e vs PoolManager/POSM reais reservada para CI |
-| 4 · Deploy | ✅ scripts (CREATE2 + mineração de hook + seed) — **pendente P0**: endereços do v4 na chain 4663 |
+| 4 · Deploy | ✅ scripts (CREATE2 + mineração de hook + seed) · endereços do v4 na chain 4663 registrados ([DEPLOYMENTS.md](docs/DEPLOYMENTS.md)) — falta confirmar no Blockscout e executar |
 | 5 · Site | ✅ build de produção funcional |
 | 6 · Lançamento/comms | ⏳ após deploy em testnet/mainnet |
 

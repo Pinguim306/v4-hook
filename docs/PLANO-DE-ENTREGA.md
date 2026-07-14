@@ -28,7 +28,13 @@ O nome segue a mesma lógica do Prism (substantivo concreto de uma sílaba forte
 | Uniswap | v2/v3/**v4** e UniswapX live na chain (anúncio oficial da Uniswap) |
 | Testnet | Robinhood Chain testnet pública (dry-run antes do mainnet) |
 
-**Pendência P0:** confirmar on-chain os endereços do v4 na Robinhood Chain — `PoolManager`, `PositionManager` (POSM), `UniversalRouter`, `StateView`, `Quoter`, `Permit2` — via página de deployments da Uniswap/Blockscout. Toda a fase de deploy depende disso.
+**P0 (resolvida):** endereços do v4 na Robinhood Chain (chain 4663) — registrados em [DEPLOYMENTS.md](DEPLOYMENTS.md) e em `contracts/.env.example`:
+
+- PoolManager: `0x8366a39CC670B4001A1121B8F6A443A643e40951`
+- PositionManager: `0x58daec3116aae6D93017bAAea7749052E8a04fA7`
+- Permit2: `0x000000000022D473030F116dDEE9F6B43aC78BA3`
+
+Checksums validados. Falta apenas confirmar on-chain no Blockscout antes do deploy em mainnet (o RPC não estava acessível no ambiente de build para verificação programática).
 
 ## 2. Fases e entregáveis
 

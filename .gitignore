@@ -24,3 +24,8 @@ web/.vite/
 # TS build cache
 web/*.tsbuildinfo
 web/tsconfig.tsbuildinfo
+
+# Secrets
+.env
+contracts/.env
+web/.env
