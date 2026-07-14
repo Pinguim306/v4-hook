@@ -46,12 +46,13 @@ docs/        Análise do Prism e plano de entrega
 | 1 · Fundação do repositório | ✅ Foundry + web + CI |
 | 2 · Contratos | ✅ Hook, Mirror, Art, BaseHook (compilam) |
 | 3 · Testes | ✅ 22 testes unitários (mock v4) passando · suíte e2e vs PoolManager/POSM reais reservada para CI |
-| 4 · Deploy | ✅ scripts (CREATE2 + mineração de hook + seed) · endereços do v4 na chain 4663 registrados ([DEPLOYMENTS.md](docs/DEPLOYMENTS.md)) — falta confirmar no Blockscout e executar |
+| 4 · Deploy | ✅ scripts (CREATE2 + mineração de hook + seed) · endereços do v4 registrados ([DEPLOYMENTS.md](docs/DEPLOYMENTS.md)) · pré-flight + fork test prontos — executar o [runbook](docs/LANCAMENTO.md) |
 | 5 · Site | ✅ build de produção funcional |
 | 6 · Lançamento/comms | ⏳ após deploy em testnet/mainnet |
 
 ## Documentação
 
+- [**Runbook de lançamento**](docs/LANCAMENTO.md) — passo a passo executável do pré-flight ao pós-lançamento
 - [Contratos](contracts/README.md) — como buildar, testar e fazer deploy
 - [Site](web/README.md) — como rodar e configurar
 - [Análise do projeto Prism](docs/ANALISE-PRISM.md) — estrutura, estratégia e contratos do projeto de referência
