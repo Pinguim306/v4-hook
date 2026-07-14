@@ -1,0 +1,41 @@
+# Default profile — used in CI with a native solc (svm download available there).
+# Compiles the full tree, including the heavy e2e suite, with via_ir + optimizer.
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc = "0.8.26"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 800
+via_ir = true
+ffi = false
+fs_permissions = [{ access = "read", path = "./" }]
+
+[profile.default.fuzz]
+runs = 256
+
+# Sandbox profile — used where only the solc-js WASM compiler is reachable (no native solc).
+# solc-js cannot compile the very large e2e compilation unit, so it is skipped here; the
+# lightweight mock-based unit suite gives full logic coverage. Run with:
+#   FOUNDRY_PROFILE=sandbox forge test --use ./solc-wrapper.js
+[profile.sandbox]
+src = "src"
+out = "out"
+libs = ["lib"]
+evm_version = "cancun"
+optimizer = false
+via_ir = false
+ffi = false
+skip = ["test/e2e/**"]
+fs_permissions = [{ access = "read", path = "./" }]
+
+[profile.sandbox.fuzz]
+runs = 64
+
+[fmt]
+line_length = 110
+tab_width = 4
+int_types = "long"
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
