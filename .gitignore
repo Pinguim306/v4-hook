@@ -20,3 +20,7 @@ web/.vite/
 # Misc
 .DS_Store
 *.log
+
+# TS build cache
+web/*.tsbuildinfo
+web/tsconfig.tsbuildinfo
