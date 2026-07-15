@@ -62,7 +62,7 @@ Melhorias pontuais sobre o original (baixo risco, alto valor):
 - Renúncia de ownership embutida: `seed()` já chama `renounceOwnership()` ao final (no Prism o owner permanece, ainda que sem poderes sobre fundos).
 - Comentários NatSpec em inglês, docs em PT-BR.
 
-**Critério de aceite:** compila com `via_ir`/otimizador nos mesmos targets do Prism; diff auditável contra o original.
+**Critério de aceite:** compila com otimizador (via-IR desligado — o pipeline IR do solc 0.8.26 não compila o PoolManager do v4-core); diff auditável contra o original.
 
 ### Fase 3 — Testes (2–3 dias)
 
