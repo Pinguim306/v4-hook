@@ -4,7 +4,7 @@
 
 **Quiver** é um token de lançamento justo na **Robinhood Chain** nos moldes do [Prism](https://prism.0xsolazy.eth.limo/) ([código](https://github.com/0xsolazy/prism)): o primeiro token da Robinhood Chain em que **segurar é prover liquidez**.
 
-**Site oficial:** https://quiverv4.fun
+**Site oficial:** https://quiverhook.fun
 
 - Cada **1 QUIVER** inteiro em carteira minta automaticamente **1 Arrow NFT** (ERC-721, arte 100% on-chain).
 - Cada Arrow é uma fração **1/4663** da mesma e única posição de liquidez Uniswap v4.
