@@ -6,9 +6,9 @@ import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
 import {HookMiner} from "@uniswap/v4-periphery/test/shared/HookMiner.sol";
 
-import {OuroHookV4} from "../src/OuroHookV4.sol";
+import {CoilHook} from "../src/CoilHook.sol";
 
-/// @notice Deploys OuroHookV4 to a CREATE2 address whose flag bits encode
+/// @notice Deploys CoilHook to a CREATE2 address whose flag bits encode
 ///   BEFORE_SWAP + BEFORE_SWAP_RETURNS_DELTA (the native per-swap fee).
 /// @dev All parameters come from the environment so the one script targets testnet and mainnet:
 ///     POOL_MANAGER      — v4 PoolManager
@@ -16,7 +16,7 @@ import {OuroHookV4} from "../src/OuroHookV4.sol";
 ///     PERMIT2           — canonical Permit2 (0x000000000022D473030F116dDEE9F6B43aC78BA3)
 ///     HOOK_OWNER        — address allowed to call seed() (renounced inside seed())
 ///     FEE_RECIPIENT     — protocol wallet that receives the protocol cut
-///     PLATFORM_TREASURY — OURO buy&burn treasury that receives the burn cut
+///     PLATFORM_TREASURY — COIL buy&burn treasury that receives the burn cut
 ///     TOKEN_SUPPLY      — total supply (wei), e.g. 1000000e18
 ///     TOKEN_NAME        — ERC-20 name
 ///     TOKEN_SYMBOL      — ERC-20 symbol
@@ -24,9 +24,9 @@ import {OuroHookV4} from "../src/OuroHookV4.sol";
 ///     HOLDER_FEE_BPS    — default 30  (0.30%)
 ///     BURN_FEE_BPS      — default 20  (0.20%)
 ///   Run:
-///     FOUNDRY_PROFILE=e2e forge script script/DeployOuro.s.sol:DeployOuro \
+///     FOUNDRY_PROFILE=e2e forge script script/DeployCoil.s.sol:DeployCoil \
 ///       --rpc-url $RPC_URL --broadcast --private-key $PK
-contract DeployOuro is Script {
+contract DeployCoil is Script {
     // Canonical CREATE2 deployer proxy (same address on every EVM chain).
     address constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
@@ -42,7 +42,7 @@ contract DeployOuro is Script {
         uint256 supply;
         string name;
         string symbol;
-        OuroHookV4.FeeConfig fees;
+        CoilHook.FeeConfig fees;
     }
 
     function _read() internal view returns (Params memory p) {
@@ -55,7 +55,7 @@ contract DeployOuro is Script {
         p.supply = vm.envUint("TOKEN_SUPPLY");
         p.name = vm.envString("TOKEN_NAME");
         p.symbol = vm.envString("TOKEN_SYMBOL");
-        p.fees = OuroHookV4.FeeConfig({
+        p.fees = CoilHook.FeeConfig({
             protocolBps: vm.envOr("PROTOCOL_FEE_BPS", uint256(50)),
             holderBps: vm.envOr("HOLDER_FEE_BPS", uint256(30)),
             burnBps: vm.envOr("BURN_FEE_BPS", uint256(20))
@@ -77,18 +77,18 @@ contract DeployOuro is Script {
         );
     }
 
-    function run() external returns (OuroHookV4 hook) {
+    function run() external returns (CoilHook hook) {
         Params memory p = _read();
 
         uint160 flags = uint160(Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG);
         (address hookAddr, bytes32 salt) =
-            HookMiner.find(CREATE2_DEPLOYER, flags, type(OuroHookV4).creationCode, _ctorArgs(p));
+            HookMiner.find(CREATE2_DEPLOYER, flags, type(CoilHook).creationCode, _ctorArgs(p));
 
         console2.log("Mined hook address:", hookAddr);
         console2.logBytes32(salt);
 
         vm.startBroadcast();
-        hook = new OuroHookV4{salt: salt}(
+        hook = new CoilHook{salt: salt}(
             IPoolManager(p.poolManager),
             p.owner,
             p.posm,
@@ -103,7 +103,7 @@ contract DeployOuro is Script {
         vm.stopBroadcast();
 
         require(address(hook) == hookAddr, "hook address mismatch");
-        console2.log("OuroHookV4 deployed:", address(hook));
+        console2.log("CoilHook deployed:", address(hook));
         console2.log("  protocol / holder / burn bps:", p.fees.protocolBps, p.fees.holderBps, p.fees.burnBps);
     }
 }

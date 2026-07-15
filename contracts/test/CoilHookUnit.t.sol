@@ -5,13 +5,13 @@ import {Test} from "forge-std/Test.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
 
-import {OuroHookV4} from "../src/OuroHookV4.sol";
+import {CoilHook} from "../src/CoilHook.sol";
 import {MockPoolManager, MockPermit2, MockPosm} from "./mocks/MockV4.sol";
 
 /// @dev Test-only subclass exposing the internal fee split so the accumulator maths can be
 ///   exercised against v4 mocks (no live PoolManager). The genuine swap → beforeSwap → take →
 ///   split path is covered by test/e2e (native solc, real PoolManager + real swaps).
-contract OuroHookHarness is OuroHookV4 {
+contract CoilHookHarness is CoilHook {
     constructor(
         IPoolManager pm,
         address owner_,
@@ -23,7 +23,7 @@ contract OuroHookHarness is OuroHookV4 {
         string memory name_,
         string memory symbol_,
         FeeConfig memory fees_
-    ) OuroHookV4(pm, owner_, posm_, permit2_, feeRecipient_, treasury_, supply_, name_, symbol_, fees_) {}
+    ) CoilHook(pm, owner_, posm_, permit2_, feeRecipient_, treasury_, supply_, name_, symbol_, fees_) {}
 
     /// @dev Simulate a swap fee already taken into the hook: for ETH, `vm.deal` the hook first;
     ///   for the token, the hook already custodies SUPPLY. Then split it exactly as `_beforeSwap`
@@ -33,11 +33,11 @@ contract OuroHookHarness is OuroHookV4 {
     }
 }
 
-/// @dev Logic-level coverage of the OuroHookV4 fee engine: the fixed protocol/holders/burn
+/// @dev Logic-level coverage of the CoilHook fee engine: the fixed protocol/holders/burn
 ///   waterfall, the balance-keyed dividend accumulator, per-holder claim, and the permissionless
 ///   protocol/treasury sweeps.
-contract OuroHookUnitTest is Test {
-    OuroHookHarness hook;
+contract CoilHookUnitTest is Test {
+    CoilHookHarness hook;
     MockPoolManager pm;
     MockPosm posm;
     MockPermit2 permit2;
@@ -46,7 +46,7 @@ contract OuroHookUnitTest is Test {
     address constant HOOK_ADDR = address(uint160(0xCAfE000000000000000000000000000000000088));
 
     address creator = makeAddr("creator"); // feeRecipient (protocol wallet)
-    address treasury = makeAddr("treasury"); // OURO buy&burn
+    address treasury = makeAddr("treasury"); // COIL buy&burn
     address alice = makeAddr("alice");
     address bob = makeAddr("bob");
     address carol = makeAddr("carol");
@@ -62,9 +62,9 @@ contract OuroHookUnitTest is Test {
         posm = new MockPosm();
         permit2 = new MockPermit2();
 
-        OuroHookV4.FeeConfig memory fees = OuroHookV4.FeeConfig({protocolBps: P_BPS, holderBps: H_BPS, burnBps: B_BPS});
+        CoilHook.FeeConfig memory fees = CoilHook.FeeConfig({protocolBps: P_BPS, holderBps: H_BPS, burnBps: B_BPS});
         deployCodeTo(
-            "OuroHookUnit.t.sol:OuroHookHarness",
+            "CoilHookUnit.t.sol:CoilHookHarness",
             abi.encode(
                 IPoolManager(address(pm)),
                 address(this),
@@ -73,13 +73,13 @@ contract OuroHookUnitTest is Test {
                 creator,
                 treasury,
                 SUPPLY,
-                "Ouro Token",
-                "OURO-T",
+                "Coil Token",
+                "COIL-T",
                 fees
             ),
             HOOK_ADDR
         );
-        hook = OuroHookHarness(payable(HOOK_ADDR));
+        hook = CoilHookHarness(payable(HOOK_ADDR));
     }
 
     /// @dev Hand `who` `amount` of the token from the hook's treasury (the same excluded→holder
@@ -92,8 +92,8 @@ contract OuroHookUnitTest is Test {
     /*                         BASICS                          */
 
     function test_Metadata() public view {
-        assertEq(hook.name(), "Ouro Token");
-        assertEq(hook.symbol(), "OURO-T");
+        assertEq(hook.name(), "Coil Token");
+        assertEq(hook.symbol(), "COIL-T");
         assertEq(hook.SUPPLY(), SUPPLY);
         assertEq(hook.totalSupply(), SUPPLY);
         assertEq(hook.balanceOf(address(hook)), SUPPLY);
@@ -123,9 +123,9 @@ contract OuroHookUnitTest is Test {
     // observe the fee-config guard itself (0x88 in the low 14 bits, like HOOK_ADDR).
     address constant HOOK_ADDR2 = address(uint160(0xBEef000000000000000000000000000000000088));
 
-    function _deployWithFees(OuroHookV4.FeeConfig memory fees) internal {
+    function _deployWithFees(CoilHook.FeeConfig memory fees) internal {
         deployCodeTo(
-            "OuroHookUnit.t.sol:OuroHookHarness",
+            "CoilHookUnit.t.sol:CoilHookHarness",
             abi.encode(
                 IPoolManager(address(pm)), address(this), address(posm), address(permit2),
                 creator, treasury, SUPPLY, "x", "x", fees
@@ -135,15 +135,15 @@ contract OuroHookUnitTest is Test {
     }
 
     function test_Constructor_RejectsZeroFee() public {
-        OuroHookV4.FeeConfig memory zero = OuroHookV4.FeeConfig({protocolBps: 0, holderBps: 0, burnBps: 0});
-        vm.expectRevert(OuroHookV4.InvalidFeeConfig.selector);
+        CoilHook.FeeConfig memory zero = CoilHook.FeeConfig({protocolBps: 0, holderBps: 0, burnBps: 0});
+        vm.expectRevert(CoilHook.InvalidFeeConfig.selector);
         _deployWithFees(zero);
     }
 
     function test_Constructor_RejectsPredatoryFee() public {
         // 6% > MAX_TOTAL_FEE_BPS (5%)
-        OuroHookV4.FeeConfig memory big = OuroHookV4.FeeConfig({protocolBps: 600, holderBps: 0, burnBps: 0});
-        vm.expectRevert(OuroHookV4.InvalidFeeConfig.selector);
+        CoilHook.FeeConfig memory big = CoilHook.FeeConfig({protocolBps: 600, holderBps: 0, burnBps: 0});
+        vm.expectRevert(CoilHook.InvalidFeeConfig.selector);
         _deployWithFees(big);
     }
 

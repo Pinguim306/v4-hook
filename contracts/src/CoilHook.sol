@@ -26,8 +26,8 @@ interface IPoolInit {
 }
 
 /// @notice A Uniswap v4 launchpad token whose hook skims a native per-swap fee.
-/// @author Ouroboros — the v4 successor to the v3 launchpad (github.com not linked on purpose).
-/// @dev The profit engine for Ouroboros on v4. Where the v3 launchpad captured post-graduation
+/// @author Coil — the v4 successor to the v3 launchpad (github.com not linked on purpose).
+/// @dev The profit engine for Coil on v4. Where the v3 launchpad captured post-graduation
 ///   volume via a manual `FeeLocker.collect()` harvest plus a `postGradTaxBps` fee-on-transfer
 ///   (fragile — many routers/aggregators block transfer taxes), this hook takes the fee INSIDE
 ///   the swap accounting via `beforeSwap` + `beforeSwapReturnDelta`. That is:
@@ -37,14 +37,15 @@ interface IPoolInit {
 ///
 ///   The 1% fee is split on-chain in a fixed "waterfall": PROTOCOL (your wallet), HOLDERS
 ///   (pro-rata dividends by ERC-20 balance, via a MasterChef-style accumulator — the same maths
-///   Quiver uses, keyed on token balance instead of NFT count), and BURN (accrued to the OURO
-///   buy&burn treasury). The pool's own LP fee is 0, so the trader is never double-charged;
+///   Quiver uses, keyed on token balance instead of NFT count), and BURN (accrued to the COIL
+///   platform-token buy&burn treasury). The pool's own LP fee is 0, so the trader is never
+///   double-charged;
 ///   100% of fee capture flows through this hook where the split is fully controllable.
 ///
 ///   The hook IS the ERC-20, the LP owner, and the fee router. After `seed()` it renounces
 ///   ownership, so the launch is provably immutable and the liquidity is locked by construction
 ///   (no FeeLocker needed — the hook itself owns and never withdraws the principal).
-contract OuroHookV4 is ERC20, BaseHook, Ownable, ReentrancyGuard {
+contract CoilHook is ERC20, BaseHook, Ownable, ReentrancyGuard {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                       CUSTOM ERRORS                        */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -110,11 +111,11 @@ contract OuroHookV4 is ERC20, BaseHook, Ownable, ReentrancyGuard {
     /// @dev The fee waterfall, fixed at launch and immutable thereafter. bps of the swap amount.
     uint256 public immutable PROTOCOL_FEE_BPS; // → feeRecipient (your wallet)
     uint256 public immutable HOLDER_FEE_BPS; //   → holders (dividends by balance)
-    uint256 public immutable BURN_FEE_BPS; //     → platformTreasury (OURO buy&burn)
+    uint256 public immutable BURN_FEE_BPS; //     → platformTreasury (COIL buy&burn)
     uint256 public immutable TOTAL_FEE_BPS; //    sum of the three
 
     /// @dev Where the protocol cut goes (creator/protocol wallet) and where the buy&burn cut
-    ///   goes (the OURO buy&burn treasury/keeper). Excluded from holder dividends so they never
+    ///   goes (the COIL buy&burn treasury/keeper). Excluded from holder dividends so they never
     ///   dilute real holders.
     address public immutable feeRecipient;
     address public immutable platformTreasury;

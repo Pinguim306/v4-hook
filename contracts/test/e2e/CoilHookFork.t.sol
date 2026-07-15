@@ -11,19 +11,19 @@ import {SwapParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
 import {PoolSwapTest} from "@uniswap/v4-core/src/test/PoolSwapTest.sol";
 import {LiquidityAmounts} from "@uniswap/v4-periphery/src/libraries/LiquidityAmounts.sol";
 
-import {OuroHookV4} from "../../src/OuroHookV4.sol";
+import {CoilHook} from "../../src/CoilHook.sol";
 
 /// @dev The definitive pre-launch validation for the v4 fee engine: deploy → seed → buy → the
 ///   hook skims a native fee → holder earns → holder claims → protocol sweeps, all against the
 ///   REAL PoolManager / PositionManager / Permit2 on Robinhood Chain. Run with:
 ///
-///     FOUNDRY_PROFILE=e2e forge test --match-contract OuroHookForkTest \
+///     FOUNDRY_PROFILE=e2e forge test --match-contract CoilHookForkTest \
 ///       --fork-url https://rpc.mainnet.chain.robinhood.com -vv
 ///
 ///   Addresses default to the ones recorded in docs/DEPLOYMENTS.md; override via env
 ///   (POOL_MANAGER / POSITION_MANAGER / PERMIT2). Self-skips off chain id 4663 so plain CI runs
 ///   are never broken.
-contract OuroHookForkTest is Test {
+contract CoilHookForkTest is Test {
     address constant DEFAULT_POOL_MANAGER = 0x8366a39CC670B4001A1121B8F6A443A643e40951;
     address constant DEFAULT_POSM = 0x58daec3116aae6D93017bAAea7749052E8a04fA7;
     address constant DEFAULT_PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
@@ -40,7 +40,7 @@ contract OuroHookForkTest is Test {
     uint256 constant B_BPS = 20;
     uint256 constant TOTAL_BPS = 100;
 
-    OuroHookV4 hook;
+    CoilHook hook;
     PoolSwapTest swapRouter;
     uint128 seedLiquidity;
 
@@ -66,10 +66,10 @@ contract OuroHookForkTest is Test {
         require(posm.code.length > 0, "PositionManager has no code on this fork");
         require(permit2.code.length > 0, "Permit2 has no code on this fork");
 
-        OuroHookV4.FeeConfig memory fees =
-            OuroHookV4.FeeConfig({protocolBps: P_BPS, holderBps: H_BPS, burnBps: B_BPS});
+        CoilHook.FeeConfig memory fees =
+            CoilHook.FeeConfig({protocolBps: P_BPS, holderBps: H_BPS, burnBps: B_BPS});
         deployCodeTo(
-            "OuroHookV4.sol:OuroHookV4",
+            "CoilHook.sol:CoilHook",
             abi.encode(
                 IPoolManager(poolManager),
                 address(this),
@@ -78,13 +78,13 @@ contract OuroHookForkTest is Test {
                 creator,
                 treasury,
                 SUPPLY,
-                "Ouro Token",
-                "OURO-T",
+                "Coil Token",
+                "COIL-T",
                 fees
             ),
             HOOK_ADDR
         );
-        hook = OuroHookV4(payable(HOOK_ADDR));
+        hook = CoilHook(payable(HOOK_ADDR));
 
         swapRouter = new PoolSwapTest(IPoolManager(poolManager));
     }

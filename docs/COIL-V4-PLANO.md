@@ -1,4 +1,4 @@
-# Ouroboros v4 — plano de migração + modelo de lucro
+# Coil v4 — plano de migração + modelo de lucro
 
 Documento de design. Dois entregáveis nesta pasta:
 
@@ -13,7 +13,7 @@ de transação ou outro mecanismo — de forma limpa, automática e compatível 
 
 ## 1. Modelo de lucro — a virada do v3 para o v4
 
-### Como o Ouroboros v3 lucra hoje
+### Como o Coil v3 lucra hoje
 
 | Fonte | Quando | Limitação |
 | --- | --- | --- |
@@ -25,7 +25,7 @@ de transação ou outro mecanismo — de forma limpa, automática e compatível 
 O ponto fraco: para capturar receita **por volume** depois da graduação, o v3 depende do
 harvest manual + um imposto de transferência (`postGradTaxBps`) que é frágil e antipático.
 
-### Como o Ouroboros v4 lucra — taxa nativa por swap
+### Como o Coil v4 lucra — taxa nativa por swap
 
 No Uniswap v4 o **hook cobra a taxa dentro da contabilidade do swap** (não como
 fee-on-transfer). Com a flag `beforeSwapReturnDelta`, o hook desvia uma fatia de **todo swap**
@@ -44,7 +44,7 @@ Mantém o custo total pro trader competitivo (~1%) e divide na origem, on-chain:
 Swap de 1000  →  taxa total 1% (10)  → dividida no próprio hook:
     ├─ 0,50%  PROTOCOLO  → sua carteira (feeRecipient)          ← seu lucro por volume
     ├─ 0,30%  HOLDERS    → dividendos, via acumulador (estilo Quiver, automático)
-    └─ 0,20%  BUY&BURN   → recompra e queima do token da plataforma (OURO)
+    └─ 0,20%  BUY&BURN   → recompra e queima do token da plataforma (COIL)
 ```
 
 Os três valores são parâmetros por token (`protocolFeeBps`, `holderFeeBps`, `burnFeeBps`),
@@ -52,14 +52,14 @@ escolhidos no launch. Modos:
 
 - **Loop Rewards:** holderFee vai pra todos os holders (o loop clássico).
 - **Creator Rewards:** holderFee vai pro criador do token (você já tem esse modo no v3).
-- **Protocol-max:** holderFee = 0, tudo pro protocolo (para os tokens *do próprio Ouroboros*).
+- **Protocol-max:** holderFee = 0, tudo pro protocolo (para os tokens *do próprio Coil*).
 
 ### As camadas de receita (todas somam pra você)
 
 1. **`creationFee`** — nativo, por lançamento (mantém do v3).
 2. **`protocolFeeBps`** — **fatia de todo swap, de todo token, pra sempre** ← o principal.
-3. **Buy&burn do token da plataforma (OURO)** — parte das taxas recompra e queima OURO;
-   se você segura OURO, o volume de *todos* os tokens vira valorização do *seu* token.
+3. **Buy&burn do token da plataforma (COIL)** — parte das taxas recompra e queima COIL;
+   se você segura COIL, o volume de *todos* os tokens vira valorização do *seu* token.
 4. **Interface fee** — a aba de swap (item 3) cobra 0,15–0,25% em qualquer token roteado.
 5. **Taxa de "features"** — limit-order, launch destacado/trending pago, etc.
 
@@ -73,7 +73,7 @@ Com `protocolFeeBps = 0,5%`:
 | US$ 1 milhão | US$ 5 mil |
 | US$ 10 milhões | US$ 50 mil |
 
-E isso **sem** contar creationFee, interface fee e a valorização do OURO via buy&burn. É o
+E isso **sem** contar creationFee, interface fee e a valorização do COIL via buy&burn. É o
 mesmo motor da pump.fun (fee por volume × muitos tokens), só que nativo no v4.
 
 ---
@@ -82,7 +82,7 @@ mesmo motor da pump.fun (fee por volume × muitos tokens), só que nativo no v4.
 
 O hook do Quiver **já resolve metade do trabalho**. Mapeamento:
 
-| Peça do Ouroboros v3 | O que o hook do Quiver já faz | Ação no v4 |
+| Peça do Coil v3 | O que o hook do Quiver já faz | Ação no v4 |
 | --- | --- | --- |
 | `FeeLocker` (trava a posição V3, harvest manual) | O hook **É** o dono da posição e trava a liquidez no `seed()` | **Elimina o FeeLocker.** Liquidez travada no hook, un-ruggable por construção |
 | Harvest manual (`collect()` + botão) | O acumulador estilo MasterChef distribui fees **sem botão** | **Elimina o harvest.** Dividendos automáticos por swap |
@@ -90,7 +90,7 @@ O hook do Quiver **já resolve metade do trabalho**. Mapeamento:
 | `postGradTaxBps` (fee-on-transfer) | — | **Substitui** por taxa nativa no `beforeSwap` (limpa) |
 | Graduação bonding curve → V3 | Quiver já faz `seed()` = init pool + deposita liquidez | Curve gradua criando o pool v4 com o hook já anexado |
 
-### Novo contrato: `OuroHookV4` (por token lançado)
+### Novo contrato: `CoilHook` (por token lançado)
 
 Adapta o `QuiverHook`, com estas mudanças-chave:
 
@@ -100,7 +100,7 @@ Adapta o `QuiverHook`, com estas mudanças-chave:
 - **`_beforeSwap`:** calcula `feeTotal = amountIn * totalFeeBps / 1e6`, e reparte:
   `protocol` (transfere pro `feeRecipient`), `holders` (soma no `accFeesPerShare`),
   `burn` (acumula pra buy&burn). Retorna o `BeforeSwapDelta` que "cobra" essa fatia.
-- **Sem NFT de "arrow":** o token do Ouroboros é um ERC-20 comum (não precisa do mirror/NFT
+- **Sem NFT de "arrow":** o token do Coil é um ERC-20 comum (não precisa do mirror/NFT
   do Quiver, a não ser que você queira a camada colecionável). Simplifica.
 - **Config imutável por token:** `protocolFeeBps`, `holderFeeBps`, `burnFeeBps`, `rewardsMode`,
   fixados no construtor. `feeRecipient` lido ao vivo do Launchpad (como o v3 faz no FeeLocker).
@@ -108,7 +108,7 @@ Adapta o `QuiverHook`, com estas mudanças-chave:
 ### `Launchpad.sol` (mudanças)
 
 - No `graduate`/`launch`, em vez de mintar posição V3 + `FeeLocker`, faz o `seed()` do
-  `OuroHookV4` (init do pool v4 + liquidez travada no hook).
+  `CoilHook` (init do pool v4 + liquidez travada no hook).
 - Mineração do endereço do hook (CREATE2) na criação do token — reusa o `HookMiner` do Quiver.
 - Mantém `creationFee` e `feeRecipient` iguais.
 - Novos parâmetros de launch: os três `*FeeBps` da cascata.
@@ -130,26 +130,26 @@ Adapta o `QuiverHook`, com estas mudanças-chave:
 
 ---
 
-## 3. Aba de swap com interface fee (o funil, dentro do Ouroboros)
+## 3. Aba de swap com interface fee (o funil, dentro do Coil)
 
-Não é app separado — é uma **aba "Swap / Trade any token"** no site do Ouroboros que:
+Não é app separado — é uma **aba "Swap / Trade any token"** no site do Coil que:
 
-- Troca **qualquer** token da Robinhood Chain (não só lançamentos Ouroboros), roteando pelo
+- Troca **qualquer** token da Robinhood Chain (não só lançamentos Coil), roteando pelo
   melhor preço (Uniswap v4 + outros DEXs da chain).
 - Cobra **interface fee** de 0,15–0,25% em cada swap → sua carteira. (É o mesmo modelo do
   front-end da Uniswap, que fatura dezenas de milhões só com isso.)
-- Coloca os **tokens Ouroboros em destaque** (trending) — o swap vira o topo de funil que
+- Coloca os **tokens Coil em destaque** (trending) — o swap vira o topo de funil que
   empurra gente pros seus lançamentos.
 
 Tecnicamente é a parte mais simples (é front-end + um contrato fino de "swap router com fee"
 que embrulha o router da chain e desvia a interface fee). Reusa o stack Next.js/wagmi que o
-Ouroboros já tem.
+Coil já tem.
 
 ---
 
 ## 4. Plano de entrega (estilo Quiver — validado a cada passo)
 
-**Fase A — `OuroHookV4` (o núcleo do lucro).**
+**Fase A — `CoilHook` (o núcleo do lucro).**
 - Adaptar o `QuiverHook` → hook com taxa nativa no `beforeSwap` + cascata protocol/holders/burn.
 - Testes unitários (mock v4) da cascata: cada swap reparte certo, dividendos acumulam, buy&burn
   acumula, protocolo recebe.
@@ -157,7 +157,7 @@ Ouroboros já tem.
   dá claim → buy&burn executa. (Igual fizemos no Quiver — prova antes de gastar.)
 
 **Fase B — Launchpad v4.**
-- `Launchpad.sol` grava o `OuroHookV4` no lugar do FeeLocker; mineração CREATE2 do endereço.
+- `Launchpad.sol` grava o `CoilHook` no lugar do FeeLocker; mineração CREATE2 do endereço.
 - Testes de integração: criar token → graduar → pool v4 vivo com o hook cobrando.
 
 **Fase C — Front-end.**
@@ -176,7 +176,7 @@ Ouroboros já tem.
 - **Lucro por token lançado:** `creationFee` (no launch) + o token entra na sua máquina de fee.
 - **Lucro por volume:** `protocolFeeBps` desvia uma fatia de **todo swap, de todo token, pra
   sempre**, nativo e limpo (sem fee-on-transfer, sem harvest manual).
-- **Lucro composto:** buy&burn do OURO transforma o volume de *todos* os tokens em valorização
+- **Lucro composto:** buy&burn do COIL transforma o volume de *todos* os tokens em valorização
   do *seu* token; a aba de swap cobra interface fee em qualquer trade da chain.
-- **Vantagem de execução:** você já tem o hook (Quiver), o launchpad (Ouroboros) e o front-end.
+- **Vantagem de execução:** você já tem o hook (Quiver), o launchpad (Coil) e o front-end.
   O v4 só **funde os dois** e troca o mecanismo frágil (harvest + tax) pelo nativo (fee no swap).

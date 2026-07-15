@@ -12,15 +12,15 @@ import {SwapParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
 import {PoolSwapTest} from "@uniswap/v4-core/src/test/PoolSwapTest.sol";
 import {LiquidityAmounts} from "@uniswap/v4-periphery/src/libraries/LiquidityAmounts.sol";
 
-import {OuroHookV4} from "../../src/OuroHookV4.sol";
+import {CoilHook} from "../../src/CoilHook.sol";
 
-/// @dev End-to-end proof of the OuroHookV4 fee engine against a live local v4 stack
+/// @dev End-to-end proof of the CoilHook fee engine against a live local v4 stack
 ///   (PoolManager + PositionManager + Permit2 from PosmTestSetup). This is the definitive test
 ///   that the native per-swap fee actually fires: it runs REAL swaps through the REAL
 ///   PoolManager and checks that the hook skimmed the protocol / holder / burn cuts out of the
 ///   swap accounting — the mechanic the whole v4 migration is built on.
-contract OuroHookE2ETest is PosmTestSetup {
-    OuroHookV4 hook;
+contract CoilHookE2ETest is PosmTestSetup {
+    CoilHook hook;
 
     // Low 14 bits encode BEFORE_SWAP (bit 7) + BEFORE_SWAP_RETURNS_DELTA (bit 3) = 0x88.
     address constant HOOK_ADDR = address(uint160(0xCAfE000000000000000000000000000000000088));
@@ -45,10 +45,10 @@ contract OuroHookE2ETest is PosmTestSetup {
         deployFreshManagerAndRouters();
         deployPosm(manager);
 
-        OuroHookV4.FeeConfig memory fees =
-            OuroHookV4.FeeConfig({protocolBps: P_BPS, holderBps: H_BPS, burnBps: B_BPS});
+        CoilHook.FeeConfig memory fees =
+            CoilHook.FeeConfig({protocolBps: P_BPS, holderBps: H_BPS, burnBps: B_BPS});
         deployCodeTo(
-            "OuroHookV4.sol:OuroHookV4",
+            "CoilHook.sol:CoilHook",
             abi.encode(
                 IPoolManager(address(manager)),
                 address(this),
@@ -57,13 +57,13 @@ contract OuroHookE2ETest is PosmTestSetup {
                 creator,
                 treasury,
                 SUPPLY,
-                "Ouro Token",
-                "OURO-T",
+                "Coil Token",
+                "COIL-T",
                 fees
             ),
             HOOK_ADDR
         );
-        hook = OuroHookV4(payable(HOOK_ADDR));
+        hook = CoilHook(payable(HOOK_ADDR));
 
         sqrtPriceX96 = TickMath.getSqrtPriceAtTick(TICK_UPPER);
         uint160 sqrtLower = TickMath.getSqrtPriceAtTick(TICK_LOWER);
@@ -117,8 +117,8 @@ contract OuroHookE2ETest is PosmTestSetup {
     /*                         BASICS                          */
 
     function test_Metadata() public view {
-        assertEq(hook.name(), "Ouro Token");
-        assertEq(hook.symbol(), "OURO-T");
+        assertEq(hook.name(), "Coil Token");
+        assertEq(hook.symbol(), "COIL-T");
         assertEq(hook.totalSupply(), SUPPLY);
         assertEq(hook.POOL_FEE(), 0);
     }
