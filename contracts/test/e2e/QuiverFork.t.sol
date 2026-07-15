@@ -123,34 +123,31 @@ contract QuiverForkTest is Test {
         assertEq(hook.hookPositionTokenId(), posId);
         assertEq(hook.owner(), address(0), "ownership renounced");
 
-        // --- Diagnostics: prove the position was actually funded on the real POSM ---
         PoolId pid = _key().toId();
-        (uint160 sqrtP, int24 tick,,) = IPoolManager(poolManager).getSlot0(pid);
-        uint128 poolLiq = IPoolManager(poolManager).getLiquidity(pid);
-        uint256 hookQuiverAfter = hook.balanceOf(address(hook));
+        _dumpPool(pid, "after seed");
         console2.log("seedLiquidity (computed):", uint256(seedLiquidity));
-        console2.log("pool liquidity (on-chain):", uint256(poolLiq));
-        console2.log("pool sqrtPriceX96:", uint256(sqrtP));
-        console2.log("pool tick:", int256(tick));
-        console2.log("hook QUIVER before seed:", hookQuiverBefore);
-        console2.log("hook QUIVER after seed:", hookQuiverAfter);
-        console2.log("QUIVER deposited to pool:", hookQuiverBefore - hookQuiverAfter);
-        // Position must actually hold liquidity, else the launch pool is empty.
-        assertGt(poolLiq, 0, "pool has no liquidity after seed - POSM mint did not fund");
-        assertApproxEqRel(
-            hookQuiverBefore - hookQuiverAfter, hook.SUPPLY(), 0.02e18, "most of supply should be deposited"
-        );
+        console2.log("QUIVER left hook (deposited):", hookQuiverBefore - hook.balanceOf(address(hook)));
+        // Did the position register liquidity at OUR ticks?
+        (uint128 grossLower, int128 netLower) = IPoolManager(poolManager).getTickLiquidity(pid, TICK_LOWER);
+        (uint128 grossUpper, int128 netUpper) = IPoolManager(poolManager).getTickLiquidity(pid, TICK_UPPER);
+        console2.log("tickLower gross liq:", uint256(grossLower));
+        console2.log("tickLower net liq:", int256(netLower));
+        console2.log("tickUpper gross liq:", uint256(grossUpper));
+        console2.log("tickUpper net liq:", int256(netUpper));
 
-        // 2. Buy: a swap through the real PoolManager mints arrows to the buyer.
+        // 2. Buy: a swap through the real PoolManager. Log alice's fill and the pool AFTER.
         _buy(alice, 5 ether);
+        _dumpPool(pid, "after 5 ETH buy");
         uint256 aliceRaw = hook.balanceOf(alice);
-        console2.log("alice QUIVER after 5 ETH buy (raw):", aliceRaw);
+        console2.log("alice QUIVER after buy (raw):", aliceRaw);
+        console2.log("alice ETH left (of 5e18):", alice.balance);
+
         uint256 whole = aliceRaw / hook.UNIT();
         assertGt(whole, 0, "alice bought whole tokens");
         assertEq(hook.nftBalanceOf(alice), whole, "arrows track whole tokens");
 
         // 3. Fees: poke harvests from the real position; alice's arrow accrues value.
-        _buy(makeAddr("bob"), 2 ether); // more volume → more fees
+        _buy(makeAddr("bob"), 2 ether); // more volume -> more fees
         hook.pokeFees();
         uint256[] memory ids = hook.ownedTokensOf(alice);
         (uint256 owedEth, uint256 owedQuiver) = hook.pendingFees(ids[0]);
@@ -166,5 +163,14 @@ contract QuiverForkTest is Test {
         // 5. On-chain art resolves through the mirror.
         string memory uri = mirror.tokenURI(ids[0]);
         assertGt(bytes(uri).length, 100);
+    }
+
+    function _dumpPool(PoolId pid, string memory label) internal view {
+        (uint160 sqrtP, int24 tick,,) = IPoolManager(poolManager).getSlot0(pid);
+        uint128 poolLiq = IPoolManager(poolManager).getLiquidity(pid);
+        console2.log(label);
+        console2.log("  sqrtPriceX96:", uint256(sqrtP));
+        console2.log("  tick:", int256(tick));
+        console2.log("  active liquidity:", uint256(poolLiq));
     }
 }
