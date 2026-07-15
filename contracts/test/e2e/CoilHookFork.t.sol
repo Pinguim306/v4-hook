@@ -48,7 +48,7 @@ contract CoilHookForkTest is Test {
     address posm;
     address permit2;
 
-    address creator = makeAddr("creator");
+    address protocolWallet = makeAddr("protocolWallet");
     address treasury = makeAddr("treasury");
     address alice = makeAddr("alice");
     address bob = makeAddr("bob");
@@ -75,8 +75,9 @@ contract CoilHookForkTest is Test {
                 address(this),
                 posm,
                 permit2,
-                creator,
+                protocolWallet,
                 treasury,
+                address(0), // Loop Rewards
                 SUPPLY,
                 "Coil Token",
                 "COIL-T",
@@ -164,10 +165,10 @@ contract CoilHookForkTest is Test {
         hook.claim();
         assertTrue(alice.balance > balBefore || hook.balanceOf(alice) > tokBefore, "claim paid");
 
-        // 6. Protocol cut sweeps to the creator wallet.
-        uint256 creatorEthBefore = creator.balance;
+        // 6. Protocol cut sweeps to the protocolWallet wallet.
+        uint256 creatorEthBefore = protocolWallet.balance;
         hook.sweepProtocol();
-        assertGe(creator.balance, creatorEthBefore);
-        console2.log("creator ETH after sweep:", creator.balance);
+        assertGe(protocolWallet.balance, creatorEthBefore);
+        console2.log("protocolWallet ETH after sweep:", protocolWallet.balance);
     }
 }

@@ -36,7 +36,7 @@ contract CoilHookE2ETest is PosmTestSetup {
     uint256 constant B_BPS = 20; // 0.20% burn → treasury
     uint256 constant TOTAL_BPS = 100; // 1%
 
-    address creator = makeAddr("creator");
+    address protocolWallet = makeAddr("protocolWallet");
     address treasury = makeAddr("treasury");
     address alice = makeAddr("alice");
     address bob = makeAddr("bob");
@@ -54,8 +54,9 @@ contract CoilHookE2ETest is PosmTestSetup {
                 address(this),
                 address(lpm),
                 address(permit2),
-                creator,
+                protocolWallet,
                 treasury,
+                address(0), // Loop Rewards
                 SUPPLY,
                 "Coil Token",
                 "COIL-T",
@@ -156,7 +157,7 @@ contract CoilHookE2ETest is PosmTestSetup {
         assertEq(
             hook.treasuryAccruedETH(),
             feeTotal * (B_BPS + H_BPS) / TOTAL_BPS,
-            "burn + (holder, no holders yet) → treasury"
+            "burn + (holder, no holders yet) -> treasury"
         );
         assertEq(hook.accPerShareETH(), 0, "no holder accumulator without holders");
 
@@ -222,11 +223,11 @@ contract CoilHookE2ETest is PosmTestSetup {
         uint256 accruedTok = hook.protocolAccruedTOKEN();
         assertTrue(accruedEth > 0 || accruedTok > 0);
 
-        uint256 ethBefore = creator.balance;
-        uint256 tokBefore = hook.balanceOf(creator);
-        hook.sweepProtocol(); // permissionless; funds can only reach the fixed creator wallet
-        assertEq(creator.balance - ethBefore, accruedEth, "creator got the ETH protocol cut");
-        assertEq(hook.balanceOf(creator) - tokBefore, accruedTok, "creator got the token protocol cut");
+        uint256 ethBefore = protocolWallet.balance;
+        uint256 tokBefore = hook.balanceOf(protocolWallet);
+        hook.sweepProtocol(); // permissionless; funds can only reach the fixed protocolWallet wallet
+        assertEq(protocolWallet.balance - ethBefore, accruedEth, "protocolWallet got the ETH protocol cut");
+        assertEq(hook.balanceOf(protocolWallet) - tokBefore, accruedTok, "protocolWallet got the token protocol cut");
         assertEq(hook.protocolAccruedETH(), 0);
         assertEq(hook.protocolAccruedTOKEN(), 0);
     }

@@ -19,11 +19,12 @@ contract CoilHookHarness is CoilHook {
         address permit2_,
         address feeRecipient_,
         address treasury_,
+        address creator_,
         uint256 supply_,
         string memory name_,
         string memory symbol_,
         FeeConfig memory fees_
-    ) CoilHook(pm, owner_, posm_, permit2_, feeRecipient_, treasury_, supply_, name_, symbol_, fees_) {}
+    ) CoilHook(pm, owner_, posm_, permit2_, feeRecipient_, treasury_, creator_, supply_, name_, symbol_, fees_) {}
 
     /// @dev Simulate a swap fee already taken into the hook: for ETH, `vm.deal` the hook first;
     ///   for the token, the hook already custodies SUPPLY. Then split it exactly as `_beforeSwap`
@@ -45,7 +46,7 @@ contract CoilHookUnitTest is Test {
     // Low 14 bits must encode BEFORE_SWAP (bit 7) + BEFORE_SWAP_RETURNS_DELTA (bit 3) = 0x88.
     address constant HOOK_ADDR = address(uint160(0xCAfE000000000000000000000000000000000088));
 
-    address creator = makeAddr("creator"); // feeRecipient (protocol wallet)
+    address protocolWallet = makeAddr("protocolWallet"); // feeRecipient (protocol wallet)
     address treasury = makeAddr("treasury"); // COIL buy&burn
     address alice = makeAddr("alice");
     address bob = makeAddr("bob");
@@ -70,8 +71,9 @@ contract CoilHookUnitTest is Test {
                 address(this),
                 address(posm),
                 address(permit2),
-                creator,
+                protocolWallet,
                 treasury,
+                address(0), // Loop Rewards (holder slice → accumulator)
                 SUPPLY,
                 "Coil Token",
                 "COIL-T",
@@ -113,7 +115,7 @@ contract CoilHookUnitTest is Test {
         assertEq(hook.HOLDER_FEE_BPS(), H_BPS);
         assertEq(hook.BURN_FEE_BPS(), B_BPS);
         assertEq(hook.TOTAL_FEE_BPS(), P_BPS + H_BPS + B_BPS);
-        assertEq(hook.feeRecipient(), creator);
+        assertEq(hook.feeRecipient(), protocolWallet);
         assertEq(hook.platformTreasury(), treasury);
     }
 
@@ -128,7 +130,7 @@ contract CoilHookUnitTest is Test {
             "CoilHookUnit.t.sol:CoilHookHarness",
             abi.encode(
                 IPoolManager(address(pm)), address(this), address(posm), address(permit2),
-                creator, treasury, SUPPLY, "x", "x", fees
+                protocolWallet, treasury, address(0), SUPPLY, "x", "x", fees
             ),
             HOOK_ADDR2
         );
@@ -256,13 +258,13 @@ contract CoilHookUnitTest is Test {
         assertGt(accruedEth, 0);
         assertGt(accruedTok, 0);
 
-        uint256 ethBefore = creator.balance;
-        uint256 tokBefore = hook.balanceOf(creator);
+        uint256 ethBefore = protocolWallet.balance;
+        uint256 tokBefore = hook.balanceOf(protocolWallet);
         // Anyone can trigger; funds can only go to the fixed feeRecipient.
         vm.prank(carol);
         hook.sweepProtocol();
-        assertEq(creator.balance - ethBefore, accruedEth);
-        assertEq(hook.balanceOf(creator) - tokBefore, accruedTok);
+        assertEq(protocolWallet.balance - ethBefore, accruedEth);
+        assertEq(hook.balanceOf(protocolWallet) - tokBefore, accruedTok);
         assertEq(hook.protocolAccruedETH(), 0);
         assertEq(hook.protocolAccruedTOKEN(), 0);
     }
@@ -280,6 +282,51 @@ contract CoilHookUnitTest is Test {
         assertEq(hook.treasuryAccruedETH(), 0);
     }
 
+    /*                    CREATOR REWARDS MODE                */
+
+    address creatorWallet = makeAddr("creatorWallet");
+
+    /// @dev Deploy a Creator-Rewards harness (creator != 0) at the second flag-valid address.
+    function _deployCreatorMode() internal returns (CoilHookHarness h) {
+        CoilHook.FeeConfig memory fees =
+            CoilHook.FeeConfig({protocolBps: P_BPS, holderBps: H_BPS, burnBps: B_BPS});
+        deployCodeTo(
+            "CoilHookUnit.t.sol:CoilHookHarness",
+            abi.encode(
+                IPoolManager(address(pm)), address(this), address(posm), address(permit2),
+                protocolWallet, treasury, creatorWallet, SUPPLY, "Coil Token", "COIL-T", fees
+            ),
+            HOOK_ADDR2
+        );
+        h = CoilHookHarness(payable(HOOK_ADDR2));
+    }
+
+    function test_CreatorRewards_HolderSliceGoesToCreator() public {
+        CoilHookHarness h = _deployCreatorMode();
+        assertEq(h.creator(), creatorWallet);
+        assertTrue(h.isExcluded(creatorWallet), "creator excluded from dividends");
+
+        // Give a real holder some tokens, then skim a token-side fee.
+        vm.prank(address(h));
+        h.transfer(alice, 100_000 ether);
+        uint256 fee = 1000 ether;
+        h.harnessDistribute(false, fee);
+
+        uint256 pot = P_BPS + H_BPS + B_BPS;
+        // Holder slice is redirected to the creator bucket; the accumulator never moves, so the
+        // real holder earns nothing from the holder slice.
+        assertEq(h.creatorAccruedTOKEN(), fee * H_BPS / pot, "holder slice -> creator");
+        assertEq(h.accPerShareTOKEN(), 0, "no dividend accumulation in creator mode");
+        (, uint256 aliceOwed) = h.pendingOf(alice);
+        assertEq(aliceOwed, 0, "holders earn nothing from the holder slice in creator mode");
+
+        // Creator sweeps their cut.
+        uint256 before = h.balanceOf(creatorWallet);
+        h.sweepCreator();
+        assertEq(h.balanceOf(creatorWallet) - before, fee * H_BPS / pot, "creator swept the slice");
+        assertEq(h.creatorAccruedTOKEN(), 0);
+    }
+
     /*                    ACCOUNTING INVARIANT                 */
 
     function test_Invariant_CirculatingTracksHolders() public {
@@ -287,7 +334,7 @@ contract CoilHookUnitTest is Test {
         _fund(bob, 5_000 ether);
         vm.prank(alice);
         hook.transfer(carol, 4_000 ether);
-        // Excluded addresses (hook, pool, creator, treasury) never count; the three EOAs do.
+        // Excluded addresses (hook, pool, protocolWallet, treasury) never count; the three EOAs do.
         assertEq(
             hook.circulating(),
             hook.balanceOf(alice) + hook.balanceOf(bob) + hook.balanceOf(carol)
@@ -301,10 +348,14 @@ contract CoilHookUnitTest is Test {
         _fund(alice, a);
         _fund(bob, b);
         hook.harnessDistribute(false, fee);
-        uint256 holderPot = fee * H_BPS / (P_BPS + H_BPS + B_BPS);
+        // The contract gives holders the REMAINDER (fee - protocol - burn), so rounding dust
+        // lands with holders, not lost. The sum of holder claims never exceeds that remainder.
+        uint256 pot = P_BPS + H_BPS + B_BPS;
+        uint256 holderPot = fee - (fee * P_BPS / pot) - (fee * B_BPS / pot);
         (, uint256 aOwed) = hook.pendingOf(alice);
         (, uint256 bOwed) = hook.pendingOf(bob);
-        // Rounding only ever leaves dust in the hook; holders never over-draw the pot.
+        // Per-share accumulator rounding only ever leaves dust in the hook; holders never
+        // over-draw the holder pot.
         assertLe(aOwed + bOwed, holderPot);
     }
 

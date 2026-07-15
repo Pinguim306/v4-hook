@@ -39,6 +39,7 @@ contract DeployCoil is Script {
         address owner;
         address feeRecipient;
         address treasury;
+        address creator; // address(0) = Loop Rewards; non-zero = Creator Rewards
         uint256 supply;
         string name;
         string symbol;
@@ -52,6 +53,7 @@ contract DeployCoil is Script {
         p.owner = vm.envAddress("HOOK_OWNER");
         p.feeRecipient = vm.envAddress("FEE_RECIPIENT");
         p.treasury = vm.envAddress("PLATFORM_TREASURY");
+        p.creator = vm.envOr("CREATOR", address(0)); // Loop Rewards by default
         p.supply = vm.envUint("TOKEN_SUPPLY");
         p.name = vm.envString("TOKEN_NAME");
         p.symbol = vm.envString("TOKEN_SYMBOL");
@@ -70,6 +72,7 @@ contract DeployCoil is Script {
             p.permit2,
             p.feeRecipient,
             p.treasury,
+            p.creator,
             p.supply,
             p.name,
             p.symbol,
@@ -95,6 +98,7 @@ contract DeployCoil is Script {
             p.permit2,
             p.feeRecipient,
             p.treasury,
+            p.creator,
             p.supply,
             p.name,
             p.symbol,

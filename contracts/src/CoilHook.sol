@@ -75,6 +75,7 @@ contract CoilHook is ERC20, BaseHook, Ownable, ReentrancyGuard {
     event Claimed(address indexed holder, uint256 ethOut, uint256 tokenOut);
     event ProtocolSwept(uint256 ethOut, uint256 tokenOut);
     event TreasurySwept(uint256 ethOut, uint256 tokenOut);
+    event CreatorSwept(uint256 ethOut, uint256 tokenOut);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         CONSTANTS                          */
@@ -120,6 +121,12 @@ contract CoilHook is ERC20, BaseHook, Ownable, ReentrancyGuard {
     address public immutable feeRecipient;
     address public immutable platformTreasury;
 
+    /// @dev Rewards mode, fixed at launch. `creator == address(0)` → Loop Rewards: the holder
+    ///   slice streams to all holders via the accumulator (the classic "holding is providing
+    ///   liquidity" loop). A non-zero `creator` → Creator Rewards: that same slice is paid to the
+    ///   creator's wallet instead (holders then earn nothing from the holder slice).
+    address public immutable creator;
+
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                          STORAGE                           */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -150,6 +157,10 @@ contract CoilHook is ERC20, BaseHook, Ownable, ReentrancyGuard {
     uint256 public treasuryAccruedETH;
     uint256 public treasuryAccruedTOKEN;
 
+    /// @dev Accrued creator cut (Creator Rewards mode only), swept to `creator`.
+    uint256 public creatorAccruedETH;
+    uint256 public creatorAccruedTOKEN;
+
     /// @dev Addresses excluded from holder-dividend accounting (pool, hook, protocol wallets).
     mapping(address => bool) public isExcluded;
 
@@ -170,6 +181,7 @@ contract CoilHook is ERC20, BaseHook, Ownable, ReentrancyGuard {
         address _permit2,
         address _feeRecipient,
         address _platformTreasury,
+        address _creator,
         uint256 _supply,
         string memory name_,
         string memory symbol_,
@@ -188,6 +200,7 @@ contract CoilHook is ERC20, BaseHook, Ownable, ReentrancyGuard {
         PERMIT2 = _permit2;
         feeRecipient = _feeRecipient;
         platformTreasury = _platformTreasury;
+        creator = _creator; // address(0) → Loop Rewards; non-zero → Creator Rewards
         SUPPLY = _supply;
 
         PROTOCOL_FEE_BPS = _fees.protocolBps;
@@ -203,6 +216,9 @@ contract CoilHook is ERC20, BaseHook, Ownable, ReentrancyGuard {
         isExcluded[address(_poolManager)] = true;
         isExcluded[_feeRecipient] = true;
         isExcluded[_platformTreasury] = true;
+        // In Creator Rewards mode the creator collects the holder slice via a bucket, so its own
+        // token balance must not also draw dividends — exclude it too.
+        if (_creator != address(0)) isExcluded[_creator] = true;
 
         _initializeOwner(_owner);
 
@@ -275,28 +291,36 @@ contract CoilHook is ERC20, BaseHook, Ownable, ReentrancyGuard {
         uint256 toBurn = feeTotal * BURN_FEE_BPS / TOTAL_FEE_BPS;
         uint256 toHolders = feeTotal - toProtocol - toBurn; // remainder → holders (no dust lost)
 
-        uint256 shares = circulating;
         if (isEth) {
             protocolAccruedETH += toProtocol;
-            if (shares > 0 && toHolders > 0) {
-                accPerShareETH += toHolders * ACC_SCALE / shares;
-                emit HoldersCredited(true, toHolders, shares);
-            } else {
-                // No holders yet (e.g. the very first buy) — route their cut to the treasury.
-                treasuryAccruedETH += toHolders;
-            }
             treasuryAccruedETH += toBurn;
         } else {
             protocolAccruedTOKEN += toProtocol;
-            if (shares > 0 && toHolders > 0) {
-                accPerShareTOKEN += toHolders * ACC_SCALE / shares;
-                emit HoldersCredited(false, toHolders, shares);
-            } else {
-                treasuryAccruedTOKEN += toHolders;
-            }
             treasuryAccruedTOKEN += toBurn;
         }
+        _creditHolders(isEth, toHolders);
         emit FeeTaken(isEth, toProtocol, toHolders, toBurn);
+    }
+
+    /// @dev Route the holder slice: Creator Rewards → the creator bucket; Loop Rewards → the
+    ///   dividend accumulator (with a treasury fallback when no holders exist yet, e.g. the very
+    ///   first buy, so nothing is lost).
+    function _creditHolders(bool isEth, uint256 toHolders) private {
+        if (toHolders == 0) return;
+        if (creator != address(0)) {
+            if (isEth) creatorAccruedETH += toHolders;
+            else creatorAccruedTOKEN += toHolders;
+            return;
+        }
+        uint256 shares = circulating;
+        if (shares == 0) {
+            if (isEth) treasuryAccruedETH += toHolders;
+            else treasuryAccruedTOKEN += toHolders;
+            return;
+        }
+        if (isEth) accPerShareETH += toHolders * ACC_SCALE / shares;
+        else accPerShareTOKEN += toHolders * ACC_SCALE / shares;
+        emit HoldersCredited(isEth, toHolders, shares);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -446,6 +470,22 @@ contract CoilHook is ERC20, BaseHook, Ownable, ReentrancyGuard {
             if (!ok) revert EthSendFailed();
         }
         emit TreasurySwept(ethOut, tokenOut);
+    }
+
+    /// @notice Push the accrued creator cut to `creator` (Creator Rewards mode). Permissionless;
+    ///   no-op in Loop Rewards mode, where the holder slice never routes here.
+    function sweepCreator() external nonReentrant {
+        uint256 ethOut = creatorAccruedETH;
+        uint256 tokenOut = creatorAccruedTOKEN;
+        if (ethOut == 0 && tokenOut == 0) return;
+        creatorAccruedETH = 0;
+        creatorAccruedTOKEN = 0;
+        if (tokenOut > 0) _transfer(address(this), creator, tokenOut);
+        if (ethOut > 0) {
+            (bool ok,) = creator.call{value: ethOut}("");
+            if (!ok) revert EthSendFailed();
+        }
+        emit CreatorSwept(ethOut, tokenOut);
     }
 
     receive() external payable {}

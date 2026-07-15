@@ -54,7 +54,10 @@ evm_version = "cancun"
 optimizer = false
 via_ir = false
 ffi = false
-skip = ["test/e2e/**"]
+# CoilLaunchpad embeds `new CoilHook{salt}(...)` in a large function; the legacy pipeline goes
+# stack-too-deep on it (it needs via-IR), so it is skipped in this no-via-IR profile. Its logic is
+# covered by CoilLaunchpadUnit under the default (via-IR) profile: `forge test --use ./solc-wrapper.js`.
+skip = ["test/e2e/**", "src/CoilLaunchpad.sol", "test/CoilLaunchpadUnit.t.sol"]
 fs_permissions = [{ access = "read", path = "./" }]
 
 [profile.sandbox.fuzz]
