@@ -236,9 +236,9 @@ export function App() {
         </div>
 
         <p className="muted" style={{marginTop: 18}}>
-          The full source, tests, and launch guide are open —{" "}
-          <a href="https://github.com/Pinguim306/v4-hook" target="_blank" rel="noreferrer">
-            github.com/Pinguim306/v4-hook
+          Contracts are verified on-chain — read every line on{" "}
+          <a href={`${explorer}/address/${HOOK_ADDRESS}`} target="_blank" rel="noreferrer">
+            Blockscout
           </a>
           . In the spirit of{" "}
           <a href="https://github.com/0xsolazy/prism" target="_blank" rel="noreferrer">
