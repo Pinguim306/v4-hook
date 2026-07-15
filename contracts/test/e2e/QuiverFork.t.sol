@@ -10,6 +10,7 @@ import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import {SwapParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
+import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 import {PoolSwapTest} from "@uniswap/v4-core/src/test/PoolSwapTest.sol";
 import {LiquidityAmounts} from "@uniswap/v4-periphery/src/libraries/LiquidityAmounts.sol";
 
@@ -97,10 +98,10 @@ contract QuiverForkTest is Test {
         posId = hook.seed(sqrtUpper, TICK_LOWER, TICK_UPPER, seedLiquidity);
     }
 
-    function _buy(address who, uint256 ethIn) internal {
+    function _buy(address who, uint256 ethIn) internal returns (BalanceDelta delta) {
         vm.deal(who, ethIn);
         vm.prank(who);
-        swapRouter.swap{value: ethIn}(
+        delta = swapRouter.swap{value: ethIn}(
             _key(),
             SwapParams({
                 zeroForOne: true,
@@ -135,12 +136,18 @@ contract QuiverForkTest is Test {
         console2.log("tickUpper gross liq:", uint256(grossUpper));
         console2.log("tickUpper net liq:", int256(netUpper));
 
-        // 2. Buy: a swap through the real PoolManager. Log alice's fill and the pool AFTER.
-        _buy(alice, 5 ether);
+        // 2. Buy: a swap through the real PoolManager. Log where the tokens actually went.
+        BalanceDelta delta = _buy(alice, 5 ether);
         _dumpPool(pid, "after 5 ETH buy");
+        console2.log("swap delta amount0 (ETH):", int256(delta.amount0()));
+        console2.log("swap delta amount1 (QUIVER):", int256(delta.amount1()));
         uint256 aliceRaw = hook.balanceOf(alice);
         console2.log("alice QUIVER after buy (raw):", aliceRaw);
+        console2.log("alice arrows (nftBalanceOf):", hook.nftBalanceOf(alice));
         console2.log("alice ETH left (of 5e18):", alice.balance);
+        console2.log("router QUIVER balance:", hook.balanceOf(address(swapRouter)));
+        console2.log("router ETH balance:", address(swapRouter).balance);
+        console2.log("hook totalShares:", hook.totalShares());
 
         uint256 whole = aliceRaw / hook.UNIT();
         assertGt(whole, 0, "alice bought whole tokens");
