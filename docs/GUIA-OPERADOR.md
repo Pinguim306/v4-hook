@@ -30,11 +30,13 @@ ficar na carteira. O deployer **não coloca ETH na pool** — a liquidez é 100%
 cd contracts
 ./bootstrap.sh          # instala as libs Solidity em commits pinados
 forge build
-forge test -vv
+forge test -vv                                          # suíte unitária (22 testes)
+FOUNDRY_PROFILE=e2e forge test --match-path "test/e2e/**" -vv   # suíte e2e (PoolManager real)
 ```
 
-✅ **Critério:** todos os testes passam (suíte unit + e2e local, ~30 testes). É a primeira vez
-que a suíte e2e roda com solc nativo — se algo falhar aqui, pare e me chame.
+✅ **Critério:** todos os testes passam nas duas suítes. A e2e usa o perfil `e2e` (configuração
+de compilador do próprio Uniswap para o v4-core); é a primeira execução dela com solc nativo —
+se algo falhar aqui, pare e me chame.
 
 ### 1.2 Pré-flight: validar a infra v4 da chain
 
@@ -49,7 +51,7 @@ Quiver chama.
 ### 1.3 Fork test: ensaio geral do lançamento
 
 ```bash
-forge test --match-contract QuiverForkTest \
+FOUNDRY_PROFILE=e2e forge test --match-contract QuiverForkTest \
   --fork-url https://rpc.mainnet.chain.robinhood.com -vv
 ```
 

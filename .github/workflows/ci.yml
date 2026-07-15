@@ -29,8 +29,11 @@ jobs:
       - name: Build
         run: forge build
 
-      - name: Test (unit + e2e, native solc)
+      - name: Test (unit)
         run: forge test -vv
+
+      - name: Test (e2e — real PoolManager/POSM, upstream compiler settings)
+        run: FOUNDRY_PROFILE=e2e forge test --match-path "test/e2e/**" -vv
 
   web:
     name: Web (vite build)

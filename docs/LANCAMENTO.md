@@ -13,7 +13,8 @@ critério de saída; não avance com uma etapa vermelha.
 ```bash
 cd contracts
 ./bootstrap.sh
-forge build && forge test -vv        # unit + e2e local devem passar
+forge build && forge test -vv                                    # suíte unitária
+FOUNDRY_PROFILE=e2e forge test --match-path "test/e2e/**" -vv    # suíte e2e
 ```
 
 ## Etapa 0 — Pré-flight: validar a infraestrutura v4 (5 min)
@@ -35,7 +36,7 @@ O validador definitivo. Executa deploy → seed → compra → acúmulo de fees 
 PoolManager/PositionManager/Permit2 **reais** (em fork local — nada é gasto):
 
 ```bash
-forge test --match-contract QuiverForkTest \
+FOUNDRY_PROFILE=e2e forge test --match-contract QuiverForkTest \
   --fork-url https://rpc.mainnet.chain.robinhood.com -vv
 ```
 

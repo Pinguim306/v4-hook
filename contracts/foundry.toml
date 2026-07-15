@@ -1,6 +1,8 @@
-# Default profile — used in CI / real machines with a native solc.
-# via_ir must stay OFF: solc 0.8.26's IR pipeline hits Yul stack-too-deep errors compiling
-# v4-core's PoolManager (upstream Uniswap also builds without via-ir, optimizer only).
+# Default profile — via-IR everywhere: QuiverHook's inlined on-chain art library blows the
+# legacy pipeline's stack ("value0 too deep"), so via-IR is mandatory for our code. Moderate
+# optimizer runs keep QuiverHook inside EIP-170 (22,336 bytes runtime at 800 runs).
+# The e2e suite is excluded here because it pulls in v4-core's Pool.sol, which solc 0.8.26
+# only compiles under via-IR at upstream's extreme optimizer-runs value — see [profile.e2e].
 [profile.default]
 src = "src"
 out = "out"
@@ -9,11 +11,33 @@ solc = "0.8.26"
 evm_version = "cancun"
 optimizer = true
 optimizer_runs = 800
-via_ir = false
+via_ir = true
 ffi = false
+skip = ["test/e2e/**"]
 fs_permissions = [{ access = "read", path = "./" }]
 
 [profile.default.fuzz]
+runs = 256
+
+# E2E/fork profile — mirrors upstream v4-core's own settings (via-IR + 44444444 runs is the
+# combination Uniswap ships and tests Pool.sol with; legacy codegen is not an option for us
+# because QuiverHook requires via-IR). Contract size is irrelevant here — tests place code
+# with vm.etch. Separate out dir so artifacts never mix with deploy artifacts.
+# Run with:  FOUNDRY_PROFILE=e2e forge test --match-path "test/e2e/**" -vv
+[profile.e2e]
+src = "src"
+out = "out-e2e"
+libs = ["lib"]
+solc = "0.8.26"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 44444444
+via_ir = true
+ffi = false
+gas_limit = "3000000000"
+fs_permissions = [{ access = "read", path = "./" }]
+
+[profile.e2e.fuzz]
 runs = 256
 
 # Sandbox profile — used where only the solc-js WASM compiler is reachable (no native solc).

@@ -29,8 +29,14 @@ Dependencies are pinned and installed by `bootstrap.sh` (used by CI):
 ```bash
 ./bootstrap.sh
 forge build
-forge test -vv
+forge test -vv                                                  # unit suite
+FOUNDRY_PROFILE=e2e forge test --match-path "test/e2e/**" -vv   # e2e suite
 ```
+
+Compiler profiles: the default profile builds everything except `test/e2e/` with **via-IR at
+800 optimizer runs** (our hook's inlined art library requires via-IR; 800 runs keeps it under
+the EIP-170 size limit). The `e2e` profile mirrors upstream v4-core's settings (via-IR,
+44444444 runs) — the only combination solc 0.8.26 compiles `Pool.sol` with under via-IR.
 
 ### Restricted networks (no native solc)
 
@@ -44,7 +50,7 @@ FOUNDRY_PROFILE=sandbox forge test --use ./solc-wrapper.js
 ```
 
 `solc-wrapper.js` and `package.json` exist solely for that fallback; CI uses a native solc and the
-default profile, compiling and running the full suite (unit + e2e).
+default and e2e profiles, compiling and running the full suite.
 
 ## Deploy (Robinhood Chain)
 
