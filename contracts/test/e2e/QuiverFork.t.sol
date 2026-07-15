@@ -99,18 +99,19 @@ contract QuiverForkTest is Test {
     }
 
     function _buy(address who, uint256 ethIn) internal returns (BalanceDelta delta) {
+        // Build the key (which makes external view calls to the hook) BEFORE vm.prank —
+        // otherwise the first of those calls consumes the prank and the swap would execute
+        // as this test contract instead of `who`, sending the output to the wrong address.
+        PoolKey memory key = _key();
+        SwapParams memory params = SwapParams({
+            zeroForOne: true, amountSpecified: -int256(ethIn), sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
+        });
+        PoolSwapTest.TestSettings memory settings =
+            PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false});
+
         vm.deal(who, ethIn);
         vm.prank(who);
-        delta = swapRouter.swap{value: ethIn}(
-            _key(),
-            SwapParams({
-                zeroForOne: true,
-                amountSpecified: -int256(ethIn),
-                sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
-            }),
-            PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
-            ""
-        );
+        delta = swapRouter.swap{value: ethIn}(key, params, settings, "");
     }
 
     /// @dev The whole launch lifecycle against the real chain infra in one test.
@@ -125,30 +126,17 @@ contract QuiverForkTest is Test {
         assertEq(hook.owner(), address(0), "ownership renounced");
 
         PoolId pid = _key().toId();
-        _dumpPool(pid, "after seed");
-        console2.log("seedLiquidity (computed):", uint256(seedLiquidity));
-        console2.log("QUIVER left hook (deposited):", hookQuiverBefore - hook.balanceOf(address(hook)));
-        // Did the position register liquidity at OUR ticks?
-        (uint128 grossLower, int128 netLower) = IPoolManager(poolManager).getTickLiquidity(pid, TICK_LOWER);
-        (uint128 grossUpper, int128 netUpper) = IPoolManager(poolManager).getTickLiquidity(pid, TICK_UPPER);
-        console2.log("tickLower gross liq:", uint256(grossLower));
-        console2.log("tickLower net liq:", int256(netLower));
-        console2.log("tickUpper gross liq:", uint256(grossUpper));
-        console2.log("tickUpper net liq:", int256(netUpper));
+        // The seed must move ~all supply into the position and register it at our ticks.
+        assertApproxEqRel(
+            hookQuiverBefore - hook.balanceOf(address(hook)), hook.SUPPLY(), 0.02e18, "supply deposited"
+        );
+        (uint128 grossLower,) = IPoolManager(poolManager).getTickLiquidity(pid, TICK_LOWER);
+        assertApproxEqRel(uint256(grossLower), uint256(seedLiquidity), 0.001e18, "position at TICK_LOWER");
 
-        // 2. Buy: a swap through the real PoolManager. Log where the tokens actually went.
-        BalanceDelta delta = _buy(alice, 5 ether);
-        _dumpPool(pid, "after 5 ETH buy");
-        console2.log("swap delta amount0 (ETH):", int256(delta.amount0()));
-        console2.log("swap delta amount1 (QUIVER):", int256(delta.amount1()));
+        // 2. Buy: a swap through the real PoolManager mints arrows to the buyer.
+        _buy(alice, 5 ether);
         uint256 aliceRaw = hook.balanceOf(alice);
-        console2.log("alice QUIVER after buy (raw):", aliceRaw);
-        console2.log("alice arrows (nftBalanceOf):", hook.nftBalanceOf(alice));
-        console2.log("alice ETH left (of 5e18):", alice.balance);
-        console2.log("router QUIVER balance:", hook.balanceOf(address(swapRouter)));
-        console2.log("router ETH balance:", address(swapRouter).balance);
-        console2.log("hook totalShares:", hook.totalShares());
-
+        console2.log("alice QUIVER after 5 ETH buy (raw):", aliceRaw);
         uint256 whole = aliceRaw / hook.UNIT();
         assertGt(whole, 0, "alice bought whole tokens");
         assertEq(hook.nftBalanceOf(alice), whole, "arrows track whole tokens");
@@ -170,14 +158,5 @@ contract QuiverForkTest is Test {
         // 5. On-chain art resolves through the mirror.
         string memory uri = mirror.tokenURI(ids[0]);
         assertGt(bytes(uri).length, 100);
-    }
-
-    function _dumpPool(PoolId pid, string memory label) internal view {
-        (uint160 sqrtP, int24 tick,,) = IPoolManager(poolManager).getSlot0(pid);
-        uint128 poolLiq = IPoolManager(poolManager).getLiquidity(pid);
-        console2.log(label);
-        console2.log("  sqrtPriceX96:", uint256(sqrtP));
-        console2.log("  tick:", int256(tick));
-        console2.log("  active liquidity:", uint256(poolLiq));
     }
 }

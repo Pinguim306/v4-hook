@@ -72,18 +72,18 @@ contract QuiverE2ETest is PosmTestSetup {
 
     /// @dev Buy `ethIn` worth of QUIVER (swap ETH→token, zeroForOne). Returns to `who`.
     function _buy(address who, uint256 ethIn) internal {
+        // Build the key (external view calls to the hook) BEFORE vm.prank, or the first of
+        // those calls consumes the prank and the swap runs as this test contract, not `who`.
+        PoolKey memory key = _key();
+        SwapParams memory params = SwapParams({
+            zeroForOne: true, amountSpecified: -int256(ethIn), sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
+        });
+        PoolSwapTest.TestSettings memory settings =
+            PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false});
+
         vm.deal(who, ethIn);
         vm.prank(who);
-        swapRouter.swap{value: ethIn}(
-            _key(),
-            SwapParams({
-                zeroForOne: true,
-                amountSpecified: -int256(ethIn),
-                sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
-            }),
-            PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
-            ""
-        );
+        swapRouter.swap{value: ethIn}(key, params, settings, "");
     }
 
     /*                         BASICS                          */
@@ -186,18 +186,18 @@ contract QuiverE2ETest is PosmTestSetup {
         uint256 bobBal = quiver.balanceOf(bob);
         vm.prank(bob);
         quiver.approve(address(swapRouter), bobBal);
-        // sell part of bob's QUIVER back for ETH to churn fees the other way
+        // sell part of bob's QUIVER back for ETH to churn fees the other way.
+        // Build the key before the prank (see _buy) so the swap runs as bob.
+        PoolKey memory sellKey = _key();
+        SwapParams memory sellParams = SwapParams({
+            zeroForOne: false,
+            amountSpecified: -int256(bobBal / 2),
+            sqrtPriceLimitX96: TickMath.MAX_SQRT_PRICE - 1
+        });
+        PoolSwapTest.TestSettings memory sellSettings =
+            PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false});
         vm.prank(bob);
-        swapRouter.swap(
-            _key(),
-            SwapParams({
-                zeroForOne: false,
-                amountSpecified: -int256(bobBal / 2),
-                sqrtPriceLimitX96: TickMath.MAX_SQRT_PRICE - 1
-            }),
-            PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
-            ""
-        );
+        swapRouter.swap(sellKey, sellParams, sellSettings, "");
 
         quiver.pokeFees();
         (uint256 owedEth, uint256 owedQuiver) = quiver.pendingFees(ids[0]);
