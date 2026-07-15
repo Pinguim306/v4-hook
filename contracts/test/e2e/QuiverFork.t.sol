@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, console2} from "forge-std/Test.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
+import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
 import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
+import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import {SwapParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
 import {PoolSwapTest} from "@uniswap/v4-core/src/test/PoolSwapTest.sol";
@@ -25,6 +27,9 @@ import {QuiverMirror} from "../../src/QuiverMirror.sol";
 ///   (POOL_MANAGER / POSITION_MANAGER / PERMIT2) for the testnet dry-run. The suite
 ///   self-skips when not running against chain id 4663, so it never breaks plain CI runs.
 contract QuiverForkTest is Test {
+    using StateLibrary for IPoolManager;
+    using PoolIdLibrary for PoolKey;
+
     address constant DEFAULT_POOL_MANAGER = 0x8366a39CC670B4001A1121B8F6A443A643e40951;
     address constant DEFAULT_POSM = 0x58daec3116aae6D93017bAAea7749052E8a04fA7;
     address constant DEFAULT_PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
@@ -38,6 +43,7 @@ contract QuiverForkTest is Test {
     QuiverHook hook;
     QuiverMirror mirror;
     PoolSwapTest swapRouter;
+    uint128 seedLiquidity;
 
     address poolManager;
     address posm;
@@ -87,8 +93,8 @@ contract QuiverForkTest is Test {
     function _seed() internal returns (uint256 posId) {
         uint160 sqrtUpper = TickMath.getSqrtPriceAtTick(TICK_UPPER);
         uint160 sqrtLower = TickMath.getSqrtPriceAtTick(TICK_LOWER);
-        uint128 liq = LiquidityAmounts.getLiquidityForAmount1(sqrtLower, sqrtUpper, hook.SUPPLY());
-        posId = hook.seed(sqrtUpper, TICK_LOWER, TICK_UPPER, liq);
+        seedLiquidity = LiquidityAmounts.getLiquidityForAmount1(sqrtLower, sqrtUpper, hook.SUPPLY());
+        posId = hook.seed(sqrtUpper, TICK_LOWER, TICK_UPPER, seedLiquidity);
     }
 
     function _buy(address who, uint256 ethIn) internal {
@@ -108,6 +114,8 @@ contract QuiverForkTest is Test {
 
     /// @dev The whole launch lifecycle against the real chain infra in one test.
     function test_Fork_FullLifecycle() public {
+        uint256 hookQuiverBefore = hook.balanceOf(address(hook));
+
         // 1. Seed: initializes the pool on the REAL PoolManager and mints the LP position
         //    on the REAL PositionManager via multicall — the exact calls the launch makes.
         uint256 posId = _seed();
@@ -115,9 +123,29 @@ contract QuiverForkTest is Test {
         assertEq(hook.hookPositionTokenId(), posId);
         assertEq(hook.owner(), address(0), "ownership renounced");
 
+        // --- Diagnostics: prove the position was actually funded on the real POSM ---
+        PoolId pid = _key().toId();
+        (uint160 sqrtP, int24 tick,,) = IPoolManager(poolManager).getSlot0(pid);
+        uint128 poolLiq = IPoolManager(poolManager).getLiquidity(pid);
+        uint256 hookQuiverAfter = hook.balanceOf(address(hook));
+        console2.log("seedLiquidity (computed):", uint256(seedLiquidity));
+        console2.log("pool liquidity (on-chain):", uint256(poolLiq));
+        console2.log("pool sqrtPriceX96:", uint256(sqrtP));
+        console2.log("pool tick:", int256(tick));
+        console2.log("hook QUIVER before seed:", hookQuiverBefore);
+        console2.log("hook QUIVER after seed:", hookQuiverAfter);
+        console2.log("QUIVER deposited to pool:", hookQuiverBefore - hookQuiverAfter);
+        // Position must actually hold liquidity, else the launch pool is empty.
+        assertGt(poolLiq, 0, "pool has no liquidity after seed - POSM mint did not fund");
+        assertApproxEqRel(
+            hookQuiverBefore - hookQuiverAfter, hook.SUPPLY(), 0.02e18, "most of supply should be deposited"
+        );
+
         // 2. Buy: a swap through the real PoolManager mints arrows to the buyer.
         _buy(alice, 5 ether);
-        uint256 whole = hook.balanceOf(alice) / hook.UNIT();
+        uint256 aliceRaw = hook.balanceOf(alice);
+        console2.log("alice QUIVER after 5 ETH buy (raw):", aliceRaw);
+        uint256 whole = aliceRaw / hook.UNIT();
         assertGt(whole, 0, "alice bought whole tokens");
         assertEq(hook.nftBalanceOf(alice), whole, "arrows track whole tokens");
 
