@@ -1,5 +1,6 @@
-# Default profile — used in CI with a native solc (svm download available there).
-# Compiles the full tree, including the heavy e2e suite, with via_ir + optimizer.
+# Default profile — used in CI / real machines with a native solc.
+# via_ir must stay OFF: solc 0.8.26's IR pipeline hits Yul stack-too-deep errors compiling
+# v4-core's PoolManager (upstream Uniswap also builds without via-ir, optimizer only).
 [profile.default]
 src = "src"
 out = "out"
@@ -8,7 +9,7 @@ solc = "0.8.26"
 evm_version = "cancun"
 optimizer = true
 optimizer_runs = 800
-via_ir = true
+via_ir = false
 ffi = false
 fs_permissions = [{ access = "read", path = "./" }]
 
