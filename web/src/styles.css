@@ -303,6 +303,54 @@ section {
   word-break: break-all;
 }
 
+/* docs */
+.docs-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+.doc-block {
+  background: var(--panel);
+  padding: 22px 24px;
+}
+.doc-block h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.doc-block p {
+  color: var(--muted);
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+.doc-block em {
+  color: var(--ink);
+  font-style: normal;
+}
+.doc-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.doc-list li {
+  color: var(--muted);
+  font-size: 13.5px;
+  padding: 6px 0 6px 16px;
+  position: relative;
+}
+.doc-list li::before {
+  content: "→";
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+}
+.doc-list b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
 /* faq */
 .faq details {
   border-bottom: 1px solid var(--line);
@@ -351,6 +399,9 @@ footer {
     grid-template-columns: repeat(2, 1fr);
   }
   .steps {
+    grid-template-columns: 1fr;
+  }
+  .docs-grid {
     grid-template-columns: 1fr;
   }
   .nav-links a:not(.btn) {

@@ -48,6 +48,7 @@ export function App() {
         <div className="nav-links">
           <a href="#how">Mechanics</a>
           <a href="#mine">My Quiver</a>
+          <a href="#docs">Docs</a>
           <a href="#faq">FAQ</a>
           <button className="btn" onClick={onConnect}>
             {account ? short(account) : "Connect"}
@@ -146,11 +147,120 @@ export function App() {
 
       <MyQuiver account={account} onConnect={onConnect} />
 
-      <section id="faq" className="faq">
+      <section id="docs">
         <div className="sec-head">
           <span className="idx">03</span>
+          <h2>Docs</h2>
+        </div>
+
+        <div className="docs-grid">
+          <div className="doc-block">
+            <h3>The architecture</h3>
+            <p>
+              Quiver is a single Uniswap v4 hook that is, at once, the ERC-20 token, the owner of the
+              one liquidity position, the fee router, and an ERC-721 ledger. There is no staking
+              contract, no LP wrapper, no router to approve — the token <em>is</em> the pool.
+            </p>
+            <ul className="doc-list">
+              <li>
+                <b>{TOKEN_SYMBOL} (ERC-20)</b> — the hook itself. Fixed supply of {SUPPLY}, 18 decimals.
+              </li>
+              <li>
+                <b>Arrow (ERC-721)</b> — a mirror contract exposing the NFTs. Every whole {TOKEN_SYMBOL}{" "}
+                you hold is one Arrow; the mapping is enforced automatically on every transfer.
+              </li>
+              <li>
+                <b>Art</b> — each Arrow renders a ballistics blueprint as SVG, generated fully on-chain
+                from a seed derived from its token id. No IPFS, no server, nothing to go offline.
+              </li>
+            </ul>
+          </div>
+
+          <div className="doc-block">
+            <h3>Fees — 1% per swap, 0% to anyone privileged</h3>
+            <p>
+              Every swap on the pool pays a <b>1% fee</b> (on buys and sells alike). That fee does not
+              go to a team, a treasury, or the deployer. It accrues to the single liquidity position
+              and is distributed <b>pro-rata to every live Arrow</b>.
+            </p>
+            <ul className="doc-list">
+              <li>No dev tax, no team allocation, no privileged withdrawal — ownership is renounced.</li>
+              <li>Fees stream in ETH and {TOKEN_SYMBOL}; claim anytime from “My Quiver”.</li>
+              <li>
+                The only way anyone earns fees — including the deployer — is by holding {TOKEN_SYMBOL}.
+                100% of the supply went into the pool at launch; there is no reserved allocation.
+              </li>
+            </ul>
+          </div>
+
+          <div className="doc-block">
+            <h3>The 4663 ceiling</h3>
+            <p>
+              {SUPPLY} is a ceiling, not a floor. Arrows mint as you accumulate whole tokens and{" "}
+              <b>burn permanently</b> when you sell a fraction. Fees already earned by an arrow are
+              credited to you as a withdrawable balance the moment it burns — you never lose earned
+              fees, only future share. Fewer live arrows means a bigger slice for everyone still
+              holding.
+            </p>
+          </div>
+
+          <div className="doc-block">
+            <h3>Pool parameters</h3>
+            <ul className="mono-list">
+              <li>
+                <span>Pair</span>
+                <span>ETH (native) / {TOKEN_SYMBOL}</span>
+              </li>
+              <li>
+                <span>Swap fee</span>
+                <span>1% (10000 pips)</span>
+              </li>
+              <li>
+                <span>Tick spacing</span>
+                <span>200</span>
+              </li>
+              <li>
+                <span>Hook flags</span>
+                <span>afterSwap</span>
+              </li>
+              <li>
+                <span>Supply</span>
+                <span>{SUPPLY} · 18 decimals</span>
+              </li>
+              <li>
+                <span>Owner</span>
+                <span>renounced (0x000…000)</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <p className="muted" style={{marginTop: 18}}>
+          The full source, tests, and launch guide are open —{" "}
+          <a href="https://github.com/Pinguim306/v4-hook" target="_blank" rel="noreferrer">
+            github.com/Pinguim306/v4-hook
+          </a>
+          . In the spirit of{" "}
+          <a href="https://github.com/0xsolazy/prism" target="_blank" rel="noreferrer">
+            Prism
+          </a>
+          .
+        </p>
+      </section>
+
+      <section id="faq" className="faq">
+        <div className="sec-head">
+          <span className="idx">04</span>
           <h2>FAQ</h2>
         </div>
+        <details>
+          <summary>Is there a buy/sell tax that goes to the dev?</summary>
+          <p>
+            No. There is a 1% swap fee, but it goes entirely to Arrow holders pro-rata — never to the
+            deployer or a treasury. Ownership is renounced, so no privileged fee extraction exists. The
+            deployer holds zero {TOKEN_SYMBOL} and earns only by buying and holding like anyone else.
+          </p>
+        </details>
         <details>
           <summary>Why 4663?</summary>
           <p>
@@ -193,7 +303,7 @@ export function App() {
 
       <section id="contracts">
         <div className="sec-head">
-          <span className="idx">04</span>
+          <span className="idx">05</span>
           <h2>Contracts</h2>
         </div>
         <ul className="mono-list">
