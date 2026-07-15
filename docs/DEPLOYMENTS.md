@@ -22,13 +22,15 @@ deploy (the RPC was not reachable from the build environment to verify programma
 
 ## Quiver contracts
 
-Filled in after deploy + seed.
+Deployed on Robinhood Chain (4663), 2026-07.
 
 | Contract | Address |
 | --- | --- |
-| QuiverHook (ERC-20 `QUIVER`) | _TBD_ |
-| QuiverMirror (ERC-721 `Arrow` / `QUIVER-LP`) | _TBD_ |
-| POSM position tokenId (LP) | _TBD_ |
-| Seed tx | _TBD_ |
+| QuiverHook (ERC-20 `QUIVER`) | `0xB3071C5c5F5f1762eC635Dff76e2AB07B1Eb0040` |
+| QuiverMirror (ERC-721 `Arrow` / `QUIVER-LP`) | `0x4f2F1B0Da1cBa6F08ccAfA4ED62b82a2a077Fb84` |
+| Deploy owner | `0x1f44d7645cfdB900472A54FFF0E4e762D1d75230` |
+| Deploy tx | `0x514ac6443078035200ee24b25680025b8b4c82279293e97a4f66926b35658ca5` |
+| POSM position tokenId (LP) | _set after seed_ |
+| Seed tx | _set after seed_ |
 
 After deploy, set `VITE_HOOK_ADDRESS` / `VITE_MIRROR_ADDRESS` for the web build so the site goes live.
