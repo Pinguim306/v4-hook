@@ -62,6 +62,9 @@ export type Holdings = {
   allIds: bigint[];
   /** Detailed (art + fees) view of the first ARROW_RENDER_CAP arrows. */
   arrows: Arrow[];
+  /** Claimable-now totals across the rendered arrows (harvest-simulated). */
+  owedEth: string;
+  owedQuiver: string;
   pendingEth: string;
   pendingQuiver: string;
   loading: boolean;
@@ -73,11 +76,44 @@ const EMPTY: Holdings = {
   arrowCount: 0,
   allIds: [],
   arrows: [],
+  owedEth: "0",
+  owedQuiver: "0",
   pendingEth: "0",
   pendingQuiver: "0",
   loading: false,
   error: null,
 };
+
+/**
+ * Read each arrow's claimable fees AS IF `pokeFees()` had just run — because the on-chain
+ * `pendingFees` view only reflects already-harvested fees. Multicall3 runs `pokeFees()` then
+ * the `pendingFees` reads inside ONE eth_call, so the poke's state changes are visible to the
+ * reads (no gas, no state written). Returns a map id -> [owedEth, owedQuiver]; empty on any
+ * failure (Multicall3 absent, sim revert) so the caller falls back to plain reads.
+ */
+async function readOwedWithPoke(ids: bigint[]): Promise<Map<string, [bigint, bigint]>> {
+  const map = new Map<string, [bigint, bigint]>();
+  if (ids.length === 0) return map;
+  try {
+    // Heterogeneous call list (pokeFees + N pendingFees) — cast past viem's homogeneous-array
+    // inference; shapes are correct at runtime.
+    const contracts = [
+      {...hook, functionName: "pokeFees"},
+      ...ids.map((id) => ({...hook, functionName: "pendingFees", args: [id]})),
+    ] as unknown as Parameters<typeof publicClient.multicall>[0]["contracts"];
+    // batchSize: 0 forces ALL calls into a single aggregate3 eth_call, so pokeFees()'s state
+    // changes are visible to the pendingFees() reads that follow it. Splitting would break that.
+    const results = await publicClient.multicall({allowFailure: true, batchSize: 0, contracts});
+    // results[0] is the pokeFees call; the pendingFees results follow in id order.
+    ids.forEach((id, i) => {
+      const r = results[i + 1];
+      if (r?.status === "success") map.set(id.toString(), r.result as [bigint, bigint]);
+    });
+  } catch {
+    // Multicall3 not available or simulation reverted — leave the map empty.
+  }
+  return map;
+}
 
 function decodeImage(tokenUri: string): string | null {
   try {
@@ -111,17 +147,34 @@ export function useHoldings(account: `0x${string}` | null) {
         publicClient.readContract({...hook, functionName: "pendingQUIVER", args: [account]}),
       ]);
       const allIds = [...(ids as readonly bigint[])];
+      const shown = allIds.slice(0, ARROW_RENDER_CAP);
+
+      // Claimable fees as if freshly harvested (see readOwedWithPoke). Falls back per-arrow
+      // to the plain (unpoked) pendingFees read if the simulated poke is unavailable.
+      const owedMap = await readOwedWithPoke(shown);
+
+      let totalOwedEth = 0n;
+      let totalOwedQuiver = 0n;
       const arrows = (
         await Promise.all(
-          allIds.slice(0, ARROW_RENDER_CAP).map(async (id): Promise<Arrow | null> => {
-            // Per-arrow reads are individually fault-tolerant: one reverted call
-            // (e.g. the arrow burned mid-load) must not blank the whole panel.
+          shown.map(async (id): Promise<Arrow | null> => {
             try {
-              const [uri, fees] = await Promise.all([
-                publicClient.readContract({...hook, functionName: "nftTokenURI", args: [id]}),
-                publicClient.readContract({...hook, functionName: "pendingFees", args: [id]}),
-              ]);
-              const [owedEth, owedQuiver] = fees as [bigint, bigint];
+              const uri = await publicClient.readContract({
+                ...hook,
+                functionName: "nftTokenURI",
+                args: [id],
+              });
+              let owed = owedMap.get(id.toString());
+              if (!owed) {
+                owed = (await publicClient.readContract({
+                  ...hook,
+                  functionName: "pendingFees",
+                  args: [id],
+                })) as [bigint, bigint];
+              }
+              const [owedEth, owedQuiver] = owed;
+              totalOwedEth += owedEth;
+              totalOwedQuiver += owedQuiver;
               return {
                 id,
                 image: decodeImage(uri as string),
@@ -141,6 +194,8 @@ export function useHoldings(account: `0x${string}` | null) {
         arrowCount: Number(nftCount),
         allIds,
         arrows,
+        owedEth: formatEther(totalOwedEth),
+        owedQuiver: formatEther(totalOwedQuiver),
         pendingEth: formatEther(pendEth as bigint),
         pendingQuiver: formatEther(pendQuiver as bigint),
         loading: false,

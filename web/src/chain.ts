@@ -1,7 +1,16 @@
 import {createPublicClient, http, defineChain} from "viem";
 import {ROBINHOOD_CHAIN} from "./config";
 
-export const robinhoodChain = defineChain(ROBINHOOD_CHAIN);
+// Canonical Multicall3 address (same on 200+ chains). Used to simulate a `pokeFees()`
+// harvest and read the resulting `pendingFees` in a single eth_call, so the fee counter
+// reflects unharvested fees live. If it is not deployed here, the reads fall back to plain
+// (unpoked) values — see useHoldings.
+const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11" as const;
+
+export const robinhoodChain = defineChain({
+  ...ROBINHOOD_CHAIN,
+  contracts: {multicall3: {address: MULTICALL3}},
+});
 
 // batch:true coalesces concurrent reads into JSON-RPC batch requests (no multicall
 // contract dependency) — the holdings panel fires ~2 calls per arrow, which would
@@ -77,6 +86,7 @@ export const hookAbi = [
     inputs: [{type: "address"}],
     outputs: [{type: "uint256"}],
   },
+  {type: "function", name: "pokeFees", stateMutability: "nonpayable", inputs: [], outputs: []},
   {type: "function", name: "claim", stateMutability: "nonpayable", inputs: [{type: "uint256"}], outputs: []},
   {
     type: "function",

@@ -363,8 +363,10 @@ export function App() {
 }
 
 function MyQuiver({account, onConnect}: {account: `0x${string}` | null; onConnect: () => void}) {
-  const {balance, arrowCount, allIds, arrows, pendingEth, pendingQuiver, loading, error, reload} =
+  const {balance, arrowCount, allIds, arrows, owedEth, owedQuiver, pendingEth, pendingQuiver, loading, error, reload} =
     useHoldings(account);
+  const hasOwed = Number(owedEth) > 0 || Number(owedQuiver) > 0;
+  const hasPending = Number(pendingEth) > 0 || Number(pendingQuiver) > 0;
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -438,23 +440,36 @@ function MyQuiver({account, onConnect}: {account: `0x${string}` | null; onConnec
               </div>
               <div style={{fontSize: 22, fontWeight: 600}}>{arrowCount}</div>
             </div>
+            <div>
+              <div className="muted" style={{fontSize: 12, letterSpacing: "0.1em"}}>
+                CLAIMABLE
+              </div>
+              <div style={{fontSize: 22, fontWeight: 600}} className={hasOwed ? "accent" : undefined}>
+                {Number(owedEth).toFixed(5)} ETH
+              </div>
+              <div className="muted" style={{fontSize: 12}}>
+                + {Number(owedQuiver).toFixed(2)} {TOKEN_SYMBOL}
+              </div>
+            </div>
             <div className="spacer" />
             <div style={{textAlign: "right"}}>
-              <div className="muted" style={{fontSize: 12}}>
-                Pending: {Number(pendingEth).toFixed(4)} ETH · {Number(pendingQuiver).toFixed(2)}{" "}
-                {TOKEN_SYMBOL}
-              </div>
+              {hasPending && (
+                <div className="muted" style={{fontSize: 12}}>
+                  Pending withdraw: {Number(pendingEth).toFixed(4)} ETH ·{" "}
+                  {Number(pendingQuiver).toFixed(2)} {TOKEN_SYMBOL}
+                </div>
+              )}
               <div className="row" style={{justifyContent: "flex-end", marginTop: 8}}>
                 <button
-                  className="btn"
+                  className="btn btn-accent"
                   disabled={busy || allIds.length === 0}
                   onClick={() => send("claimMany", allIds)}
                 >
-                  Claim all fees
+                  Claim fees
                 </button>
                 <button
                   className="btn"
-                  disabled={busy || (Number(pendingEth) === 0 && Number(pendingQuiver) === 0)}
+                  disabled={busy || !hasPending}
                   onClick={() => send("withdrawPending")}
                 >
                   Withdraw pending

@@ -283,6 +283,9 @@ section {
 .muted {
   color: var(--muted);
 }
+.accent {
+  color: var(--accent);
+}
 .mono-list {
   list-style: none;
   padding: 0;
