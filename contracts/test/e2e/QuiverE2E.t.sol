@@ -12,8 +12,8 @@ import {SwapParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
 import {PoolSwapTest} from "@uniswap/v4-core/src/test/PoolSwapTest.sol";
 import {LiquidityAmounts} from "@uniswap/v4-periphery/src/libraries/LiquidityAmounts.sol";
 
-import {QuiverHook} from "../src/QuiverHook.sol";
-import {QuiverMirror} from "../src/QuiverMirror.sol";
+import {QuiverHook} from "../../src/QuiverHook.sol";
+import {QuiverMirror} from "../../src/QuiverMirror.sol";
 
 /// @dev End-to-end + unit coverage for the Quiver hook against a live local v4 stack
 ///   (PoolManager + PositionManager + Permit2 from PosmTestSetup).
