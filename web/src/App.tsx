@@ -1,8 +1,8 @@
 import {useEffect, useState} from "react";
 import {ArrowMark} from "./ArrowMark";
-import {usePoolStats, useHoldings} from "./useQuiver";
-import {connect, currentAccount, walletClient} from "./wallet";
-import {hookAbi} from "./chain";
+import {usePoolStats, useHoldings, ARROW_RENDER_CAP} from "./useQuiver";
+import {connect, currentAccount, onWalletEvents, walletClient} from "./wallet";
+import {hookAbi, publicClient} from "./chain";
 import {
   HOOK_ADDRESS,
   MIRROR_ADDRESS,
@@ -23,6 +23,11 @@ export function App() {
 
   useEffect(() => {
     currentAccount().then(setAccount).catch(() => {});
+    // Track wallet-side changes: switching accounts updates the panel; leaving the
+    // chain is surfaced on the next action (writes re-assert the chain).
+    return onWalletEvents({
+      onAccountsChanged: (acc) => setAccount(acc),
+    });
   }, []);
 
   const onConnect = async () => {
@@ -78,7 +83,7 @@ export function App() {
         </div>
         <div className="stat">
           <div className="k">Live arrows</div>
-          <div className="v">{stats.liveArrows ?? (isLaunched ? "…" : "—")}</div>
+          <div className="v">{stats.liveArrows ?? (isLaunched ? (stats.error ? "—" : "…") : "—")}</div>
         </div>
         <div className="stat">
           <div className="k">Pool fee</div>
@@ -86,7 +91,15 @@ export function App() {
         </div>
         <div className="stat">
           <div className="k">Status</div>
-          <div className="v">{isLaunched ? (stats.seeded ? "Live" : "Deployed") : "Pre-launch"}</div>
+          <div className="v">
+            {!isLaunched
+              ? "Pre-launch"
+              : stats.error && stats.seeded === null
+                ? "RPC offline"
+                : stats.seeded
+                  ? "Live"
+                  : "Deployed"}
+          </div>
         </div>
       </div>
 
@@ -240,7 +253,8 @@ export function App() {
 }
 
 function MyQuiver({account, onConnect}: {account: `0x${string}` | null; onConnect: () => void}) {
-  const {balance, arrows, pendingEth, pendingQuiver, loading, reload} = useHoldings(account);
+  const {balance, arrowCount, allIds, arrows, pendingEth, pendingQuiver, loading, error, reload} =
+    useHoldings(account);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -258,8 +272,14 @@ function MyQuiver({account, onConnect}: {account: `0x${string}` | null; onConnec
         functionName: fn,
         args: fn === "claimMany" ? [ids ?? []] : [],
       });
-      setMsg(`Submitted: ${short(hash)}`);
-      setTimeout(reload, 4000);
+      setMsg(`Submitted ${short(hash)} — waiting for confirmation…`);
+      try {
+        await publicClient.waitForTransactionReceipt({hash, timeout: 60_000});
+        setMsg(`Confirmed: ${short(hash)}`);
+      } catch {
+        setMsg(`Submitted ${short(hash)} — confirmation still pending, refresh in a moment.`);
+      }
+      reload();
     } catch (e) {
       setMsg((e as Error).message.split("\n")[0]);
     } finally {
@@ -306,7 +326,7 @@ function MyQuiver({account, onConnect}: {account: `0x${string}` | null; onConnec
               <div className="muted" style={{fontSize: 12, letterSpacing: "0.1em"}}>
                 ARROWS
               </div>
-              <div style={{fontSize: 22, fontWeight: 600}}>{arrows.length}</div>
+              <div style={{fontSize: 22, fontWeight: 600}}>{arrowCount}</div>
             </div>
             <div className="spacer" />
             <div style={{textAlign: "right"}}>
@@ -317,8 +337,8 @@ function MyQuiver({account, onConnect}: {account: `0x${string}` | null; onConnec
               <div className="row" style={{justifyContent: "flex-end", marginTop: 8}}>
                 <button
                   className="btn"
-                  disabled={busy || arrows.length === 0}
-                  onClick={() => send("claimMany", arrows.map((a) => a.id))}
+                  disabled={busy || allIds.length === 0}
+                  onClick={() => send("claimMany", allIds)}
                 >
                   Claim all fees
                 </button>
@@ -334,6 +354,7 @@ function MyQuiver({account, onConnect}: {account: `0x${string}` | null; onConnec
           </div>
 
           {msg && <p className="notice" style={{marginTop: 16}}>{msg}</p>}
+          {error && <p className="notice" style={{marginTop: 16}}>{error}</p>}
           {loading && <p className="muted" style={{marginTop: 16}}>Loading arrows…</p>}
 
           <div className="arrow-grid">
@@ -349,7 +370,13 @@ function MyQuiver({account, onConnect}: {account: `0x${string}` | null; onConnec
               </div>
             ))}
           </div>
-          {!loading && arrows.length === 0 && (
+          {arrowCount > ARROW_RENDER_CAP && (
+            <p className="muted" style={{marginTop: 12}}>
+              Showing {Math.min(arrows.length, ARROW_RENDER_CAP)} of {arrowCount} arrows — “Claim all
+              fees” always covers every arrow you own.
+            </p>
+          )}
+          {!loading && !error && arrowCount === 0 && (
             <p className="muted" style={{marginTop: 16}}>
               No arrows yet — hold at least one whole {TOKEN_SYMBOL} to mint your first.
             </p>

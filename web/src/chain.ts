@@ -3,9 +3,12 @@ import {ROBINHOOD_CHAIN} from "./config";
 
 export const robinhoodChain = defineChain(ROBINHOOD_CHAIN);
 
+// batch:true coalesces concurrent reads into JSON-RPC batch requests (no multicall
+// contract dependency) — the holdings panel fires ~2 calls per arrow, which would
+// otherwise hit public-RPC rate limits as a burst of individual HTTP requests.
 export const publicClient = createPublicClient({
   chain: robinhoodChain,
-  transport: http(),
+  transport: http(undefined, {batch: {batchSize: 50, wait: 16}}),
 });
 
 // Minimal ABI — only the reads/writes the site needs.
