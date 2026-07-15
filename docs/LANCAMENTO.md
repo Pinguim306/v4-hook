@@ -83,15 +83,17 @@ ainda não existe — transparência antes do primeiro trade.
 unilateral e **renuncia a ownership** na mesma transação. Depois disso não há mais nenhum
 controle privilegiado. Conferir `TICK_LOWER`/`TICK_UPPER` duas vezes.
 
-Sobre o preço inicial: o lançamento acontece no tick superior (`TICK_UPPER = 0` → preço inicial
-de 1 QUIVER = 1 ETH·10^(tick·0,0001); com tick 0, 1:1 em unidades brutas). O range
-`[-6000, 0]` cobre ~1,8x de queda de preço; ajustar se quiser um piso diferente. Regra prática:
-`preço = 1,0001^tick` (ETH por QUIVER).
+Sobre o preço inicial: o lançamento acontece no tick superior. Com `currency0 = ETH` e
+`currency1 = QUIVER`, o preço de 1 QUIVER em ETH é **`1,0001^(−TICK_UPPER)`** — tick maior =
+lançamento mais barato. `TICK_LOWER` define o teto de valorização (preço quando todo o supply
+tiver sido vendido): `1,0001^(−TICK_LOWER)`. Ambos múltiplos de 200. Tabela pronta de
+preço↔tick no [GUIA-OPERADOR.md](GUIA-OPERADOR.md). Exemplo abaixo: lançamento a ≈0,001 ETH
+por QUIVER (FDV ≈ 4,7 ETH), sem teto prático.
 
 ```bash
 export HOOK=0x...        # do passo anterior
-export TICK_LOWER=-6000
-export TICK_UPPER=0
+export TICK_LOWER=-887200
+export TICK_UPPER=69000
 
 forge script script/Seed.s.sol:SeedQuiver \
   --rpc-url $RPC_URL --broadcast --private-key $PK

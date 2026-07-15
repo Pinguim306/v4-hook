@@ -52,7 +52,8 @@ docs/        Análise do Prism e plano de entrega
 
 ## Documentação
 
-- [**Runbook de lançamento**](docs/LANCAMENTO.md) — passo a passo executável do pré-flight ao pós-lançamento
+- [**Guia do operador**](docs/GUIA-OPERADOR.md) — o que você precisa ter e fazer, do zero ao site no ar (comece por aqui)
+- [Runbook de lançamento](docs/LANCAMENTO.md) — passo a passo executável do pré-flight ao pós-lançamento
 - [Contratos](contracts/README.md) — como buildar, testar e fazer deploy
 - [Site](web/README.md) — como rodar e configurar
 - [Análise do projeto Prism](docs/ANALISE-PRISM.md) — estrutura, estratégia e contratos do projeto de referência
