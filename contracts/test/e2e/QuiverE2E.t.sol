@@ -18,7 +18,7 @@ import {QuiverMirror} from "../../src/QuiverMirror.sol";
 /// @dev End-to-end + unit coverage for the Quiver hook against a live local v4 stack
 ///   (PoolManager + PositionManager + Permit2 from PosmTestSetup).
 contract QuiverE2ETest is PosmTestSetup {
-    QuiverHook hook;
+    QuiverHook quiver;
     QuiverMirror mirror;
 
     // Hook must live at an address whose low 14 bits encode exactly AFTER_SWAP_FLAG.
@@ -36,7 +36,10 @@ contract QuiverE2ETest is PosmTestSetup {
 
     function setUp() public {
         deployFreshManagerAndRouters();
-        deployAndApprovePosm(manager);
+        // deployPosm only (not deployAndApprovePosm): approvePosm() would touch the base
+        // class's currency0/currency1, which this suite never initializes (our pool pairs
+        // native ETH with the hook itself and needs no POSM currency approvals).
+        deployPosm(manager);
 
         // Deploy the hook at the flag-encoded address (constructor validates the bits).
         deployCodeTo(
@@ -44,26 +47,26 @@ contract QuiverE2ETest is PosmTestSetup {
             abi.encode(IPoolManager(address(manager)), address(this), address(lpm), address(permit2)),
             HOOK_ADDR
         );
-        hook = QuiverHook(payable(HOOK_ADDR));
-        mirror = hook.mirror();
+        quiver = QuiverHook(payable(HOOK_ADDR));
+        mirror = quiver.mirror();
 
         // Launch price at the upper tick so the whole supply is provided as token1 only.
         sqrtPriceX96 = TickMath.getSqrtPriceAtTick(TICK_UPPER);
         uint160 sqrtLower = TickMath.getSqrtPriceAtTick(TICK_LOWER);
-        seedLiquidity = LiquidityAmounts.getLiquidityForAmount1(sqrtLower, sqrtPriceX96, hook.SUPPLY());
+        seedLiquidity = LiquidityAmounts.getLiquidityForAmount1(sqrtLower, sqrtPriceX96, quiver.SUPPLY());
     }
 
     function _seed() internal {
-        hook.seed(sqrtPriceX96, TICK_LOWER, TICK_UPPER, seedLiquidity);
+        quiver.seed(sqrtPriceX96, TICK_LOWER, TICK_UPPER, seedLiquidity);
     }
 
     function _key() internal view returns (PoolKey memory) {
         return PoolKey({
             currency0: Currency.wrap(address(0)),
-            currency1: Currency.wrap(address(hook)),
-            fee: hook.POOL_FEE(),
-            tickSpacing: hook.TICK_SPACING(),
-            hooks: IHooks(address(hook))
+            currency1: Currency.wrap(address(quiver)),
+            fee: quiver.POOL_FEE(),
+            tickSpacing: quiver.TICK_SPACING(),
+            hooks: IHooks(address(quiver))
         });
     }
 
@@ -86,17 +89,17 @@ contract QuiverE2ETest is PosmTestSetup {
     /*                         BASICS                          */
 
     function test_Metadata() public view {
-        assertEq(hook.name(), "Quiver");
-        assertEq(hook.symbol(), "QUIVER");
-        assertEq(hook.SUPPLY(), 4663 ether);
-        assertEq(hook.totalSupply(), 4663 ether);
-        assertEq(hook.balanceOf(address(hook)), 4663 ether);
+        assertEq(quiver.name(), "Quiver");
+        assertEq(quiver.symbol(), "QUIVER");
+        assertEq(quiver.SUPPLY(), 4663 ether);
+        assertEq(quiver.totalSupply(), 4663 ether);
+        assertEq(quiver.balanceOf(address(quiver)), 4663 ether);
         assertEq(mirror.name(), "Quiver-LP");
         assertEq(mirror.symbol(), "QUIVER-LP");
     }
 
     function test_HookPermissions_OnlyAfterSwap() public view {
-        Hooks.Permissions memory p = hook.getHookPermissions();
+        Hooks.Permissions memory p = quiver.getHookPermissions();
         assertTrue(p.afterSwap);
         assertFalse(p.beforeSwap);
         assertFalse(p.beforeInitialize);
@@ -104,12 +107,12 @@ contract QuiverE2ETest is PosmTestSetup {
     }
 
     function test_Seed_MintsPositionAndRenounces() public {
-        assertEq(hook.owner(), address(this));
+        assertEq(quiver.owner(), address(this));
         _seed();
-        assertTrue(hook.seeded());
-        assertGt(hook.hookPositionTokenId(), 0);
+        assertTrue(quiver.seeded());
+        assertGt(quiver.hookPositionTokenId(), 0);
         // Fair-launch guarantee: ownership renounced after seeding.
-        assertEq(hook.owner(), address(0));
+        assertEq(quiver.owner(), address(0));
     }
 
     function test_Seed_Twice_Reverts() public {
@@ -125,13 +128,13 @@ contract QuiverE2ETest is PosmTestSetup {
         _seed();
         _buy(alice, 5 ether);
 
-        uint256 whole = hook.balanceOf(alice) / hook.UNIT();
+        uint256 whole = quiver.balanceOf(alice) / quiver.UNIT();
         assertGt(whole, 0, "alice should hold whole tokens");
-        assertEq(hook.nftBalanceOf(alice), whole, "arrow count tracks whole-token balance");
-        assertEq(hook.totalShares(), whole);
+        assertEq(quiver.nftBalanceOf(alice), whole, "arrow count tracks whole-token balance");
+        assertEq(quiver.totalShares(), whole);
 
         // owned set is consistent
-        uint256[] memory ids = hook.ownedTokensOf(alice);
+        uint256[] memory ids = quiver.ownedTokensOf(alice);
         assertEq(ids.length, whole);
         for (uint256 i = 0; i < ids.length; i++) {
             assertEq(mirror.ownerOf(ids[i]), alice);
@@ -141,32 +144,32 @@ contract QuiverE2ETest is PosmTestSetup {
     function test_PartialSell_BurnsArrow() public {
         _seed();
         _buy(alice, 5 ether);
-        uint256 wholeBefore = hook.nftBalanceOf(alice);
+        uint256 wholeBefore = quiver.nftBalanceOf(alice);
         assertGt(wholeBefore, 1);
 
         // Move a fractional amount out → at least one whole token disappears → one arrow burns.
-        uint256 sendFrac = hook.balanceOf(alice) - (wholeBefore - 1) * hook.UNIT() + 1;
+        uint256 sendFrac = quiver.balanceOf(alice) - (wholeBefore - 1) * quiver.UNIT() + 1;
         vm.prank(alice);
-        hook.transfer(bob, sendFrac);
+        quiver.transfer(bob, sendFrac);
 
-        assertLt(hook.nftBalanceOf(alice), wholeBefore, "alice lost an arrow");
-        assertEq(hook.nftBalanceOf(alice), hook.balanceOf(alice) / hook.UNIT());
-        assertEq(hook.nftBalanceOf(bob), hook.balanceOf(bob) / hook.UNIT());
+        assertLt(quiver.nftBalanceOf(alice), wholeBefore, "alice lost an arrow");
+        assertEq(quiver.nftBalanceOf(alice), quiver.balanceOf(alice) / quiver.UNIT());
+        assertEq(quiver.nftBalanceOf(bob), quiver.balanceOf(bob) / quiver.UNIT());
         // total shares always equals sum of live arrows
-        assertEq(hook.totalShares(), hook.nftBalanceOf(alice) + hook.nftBalanceOf(bob));
+        assertEq(quiver.totalShares(), quiver.nftBalanceOf(alice) + quiver.nftBalanceOf(bob));
     }
 
     function test_WholeTransfer_MovesArrows() public {
         _seed();
         _buy(alice, 5 ether);
-        uint256 aliceWhole = hook.nftBalanceOf(alice);
+        uint256 aliceWhole = quiver.nftBalanceOf(alice);
 
         vm.prank(alice);
-        hook.transfer(bob, 2 ether); // two whole tokens
+        quiver.transfer(bob, 2 ether); // two whole tokens
 
-        assertEq(hook.nftBalanceOf(alice), aliceWhole - 2);
-        assertEq(hook.nftBalanceOf(bob), 2);
-        assertEq(hook.totalShares(), aliceWhole);
+        assertEq(quiver.nftBalanceOf(alice), aliceWhole - 2);
+        assertEq(quiver.nftBalanceOf(bob), 2);
+        assertEq(quiver.totalShares(), aliceWhole);
     }
 
     /*                    FEE DISTRIBUTION                     */
@@ -175,14 +178,14 @@ contract QuiverE2ETest is PosmTestSetup {
         _seed();
         _buy(alice, 10 ether); // alice becomes a holder with arrows
 
-        uint256[] memory ids = hook.ownedTokensOf(alice);
+        uint256[] memory ids = quiver.ownedTokensOf(alice);
         assertGt(ids.length, 0);
 
         // Generate swap fees: bob trades in both directions.
         _buy(bob, 3 ether);
-        uint256 bobBal = hook.balanceOf(bob);
+        uint256 bobBal = quiver.balanceOf(bob);
         vm.prank(bob);
-        hook.approve(address(swapRouter), bobBal);
+        quiver.approve(address(swapRouter), bobBal);
         // sell part of bob's QUIVER back for ETH to churn fees the other way
         vm.prank(bob);
         swapRouter.swap(
@@ -196,19 +199,19 @@ contract QuiverE2ETest is PosmTestSetup {
             ""
         );
 
-        hook.pokeFees();
-        (uint256 owedEth, uint256 owedQuiver) = hook.pendingFees(ids[0]);
+        quiver.pokeFees();
+        (uint256 owedEth, uint256 owedQuiver) = quiver.pendingFees(ids[0]);
         assertTrue(owedEth > 0 || owedQuiver > 0, "fees should accrue to an arrow");
 
         uint256 ethBefore = alice.balance;
-        uint256 quiverBefore = hook.balanceOf(alice);
+        uint256 quiverBefore = quiver.balanceOf(alice);
         vm.prank(alice);
-        hook.claim(ids[0]);
+        quiver.claim(ids[0]);
         assertGe(alice.balance, ethBefore);
-        assertGe(hook.balanceOf(alice), quiverBefore);
+        assertGe(quiver.balanceOf(alice), quiverBefore);
 
         // claimed arrow now owes ~nothing until more fees accrue
-        (uint256 afterEth, uint256 afterQuiver) = hook.pendingFees(ids[0]);
+        (uint256 afterEth, uint256 afterQuiver) = quiver.pendingFees(ids[0]);
         assertEq(afterEth, 0);
         assertEq(afterQuiver, 0);
     }
@@ -216,9 +219,9 @@ contract QuiverE2ETest is PosmTestSetup {
     function test_ClaimMany_SkipsBurned() public {
         _seed();
         _buy(alice, 6 ether);
-        uint256[] memory ids = hook.ownedTokensOf(alice);
+        uint256[] memory ids = quiver.ownedTokensOf(alice);
         _buy(bob, 2 ether);
-        hook.pokeFees();
+        quiver.pokeFees();
 
         // Should not revert even if a listed id was burned / not owned.
         uint256[] memory withGhost = new uint256[](ids.length + 1);
@@ -227,7 +230,7 @@ contract QuiverE2ETest is PosmTestSetup {
         }
         withGhost[ids.length] = 999999; // non-existent
         vm.prank(alice);
-        hook.claimMany(withGhost);
+        quiver.claimMany(withGhost);
     }
 
     /*                    MIRROR / ERC721                      */
@@ -235,23 +238,23 @@ contract QuiverE2ETest is PosmTestSetup {
     function test_Mirror_TransferMovesTokenAndArrow() public {
         _seed();
         _buy(alice, 4 ether);
-        uint256[] memory ids = hook.ownedTokensOf(alice);
+        uint256[] memory ids = quiver.ownedTokensOf(alice);
         uint256 id = ids[0];
 
-        uint256 aliceBalBefore = hook.balanceOf(alice);
+        uint256 aliceBalBefore = quiver.balanceOf(alice);
         vm.prank(alice);
         mirror.transferFrom(alice, bob, id);
 
         assertEq(mirror.ownerOf(id), bob);
         // exactly one UNIT of the ERC20 followed the arrow
-        assertEq(hook.balanceOf(alice), aliceBalBefore - hook.UNIT());
-        assertEq(hook.nftBalanceOf(bob), 1);
+        assertEq(quiver.balanceOf(alice), aliceBalBefore - quiver.UNIT());
+        assertEq(quiver.nftBalanceOf(bob), 1);
     }
 
     function test_Mirror_SelfTransfer_Reverts() public {
         _seed();
         _buy(alice, 3 ether);
-        uint256 id = hook.ownedTokensOf(alice)[0];
+        uint256 id = quiver.ownedTokensOf(alice)[0];
         vm.prank(alice);
         vm.expectRevert(QuiverHook.SelfTransferDisallowed.selector);
         mirror.transferFrom(alice, alice, id);
@@ -260,7 +263,7 @@ contract QuiverE2ETest is PosmTestSetup {
     function test_Mirror_ApproveAndTransfer() public {
         _seed();
         _buy(alice, 3 ether);
-        uint256 id = hook.ownedTokensOf(alice)[0];
+        uint256 id = quiver.ownedTokensOf(alice)[0];
 
         vm.prank(alice);
         mirror.approve(carol, id);
@@ -274,7 +277,7 @@ contract QuiverE2ETest is PosmTestSetup {
     function test_Mirror_UnauthorizedTransfer_Reverts() public {
         _seed();
         _buy(alice, 3 ether);
-        uint256 id = hook.ownedTokensOf(alice)[0];
+        uint256 id = quiver.ownedTokensOf(alice)[0];
         vm.prank(carol);
         vm.expectRevert(QuiverHook.NotOwnerOrApproved.selector);
         mirror.transferFrom(alice, bob, id);
@@ -292,7 +295,7 @@ contract QuiverE2ETest is PosmTestSetup {
     function test_Art_TokenURI_IsDataJson() public {
         _seed();
         _buy(alice, 2 ether);
-        uint256 id = hook.ownedTokensOf(alice)[0];
+        uint256 id = quiver.ownedTokensOf(alice)[0];
         string memory uri = mirror.tokenURI(id);
         assertTrue(bytes(uri).length > 0);
         // starts with data:application/json;base64,
@@ -306,18 +309,18 @@ contract QuiverE2ETest is PosmTestSetup {
     function test_Art_SeedDeterministic() public {
         _seed();
         _buy(alice, 2 ether);
-        uint256 id = hook.ownedTokensOf(alice)[0];
-        assertEq(hook.seedOf(id), hook.seedOf(id));
+        uint256 id = quiver.ownedTokensOf(alice)[0];
+        assertEq(quiver.seedOf(id), quiver.seedOf(id));
         // different id → different seed (overwhelmingly)
         _buy(bob, 2 ether);
-        uint256 idB = hook.ownedTokensOf(bob)[0];
-        assertTrue(hook.seedOf(id) != hook.seedOf(idB));
+        uint256 idB = quiver.ownedTokensOf(bob)[0];
+        assertTrue(quiver.seedOf(id) != quiver.seedOf(idB));
     }
 
     function test_TokenURI_UnknownId_Reverts() public {
         _seed();
         vm.expectRevert(QuiverHook.InvalidTokenId.selector);
-        hook.nftTokenURI(123456);
+        quiver.nftTokenURI(123456);
     }
 
     /*                       INVARIANTS                        */
@@ -327,11 +330,10 @@ contract QuiverE2ETest is PosmTestSetup {
         _buy(alice, 7 ether);
         _buy(bob, 5 ether);
         vm.prank(alice);
-        hook.transfer(carol, 1_500_000_000_000_000_000); // 1.5 tokens
+        quiver.transfer(carol, 1_500_000_000_000_000_000); // 1.5 tokens
         assertEq(
-            hook.totalShares(), hook.nftBalanceOf(alice) + hook.nftBalanceOf(bob) + hook.nftBalanceOf(carol)
+            quiver.totalShares(),
+            quiver.nftBalanceOf(alice) + quiver.nftBalanceOf(bob) + quiver.nftBalanceOf(carol)
         );
     }
-
-    receive() external payable {}
 }
