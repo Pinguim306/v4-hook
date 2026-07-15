@@ -30,7 +30,9 @@ Deployed on Robinhood Chain (4663), 2026-07.
 | QuiverMirror (ERC-721 `Arrow` / `QUIVER-LP`) | `0x4f2F1B0Da1cBa6F08ccAfA4ED62b82a2a077Fb84` |
 | Deploy owner | `0x1f44d7645cfdB900472A54FFF0E4e762D1d75230` |
 | Deploy tx | `0x514ac6443078035200ee24b25680025b8b4c82279293e97a4f66926b35658ca5` |
-| POSM position tokenId (LP) | _set after seed_ |
-| Seed tx | _set after seed_ |
+| POSM position tokenId (LP) | `106484` |
+| Seed tx | `0x13c440eb0f65422bd3eb12b70baa95e38c3c4166504a6d480524b268d9fa3b10` |
+| Owner after seed | `0x0000000000000000000000000000000000000000` (renounced) |
+| Launch ticks | `TICK_LOWER=-887200`, `TICK_UPPER=69000` (~0.001 ETH/QUIVER) |
 
 After deploy, set `VITE_HOOK_ADDRESS` / `VITE_MIRROR_ADDRESS` for the web build so the site goes live.
