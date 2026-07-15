@@ -85,28 +85,28 @@ contract CoilLaunchpadE2ETest is PosmTestSetup {
 
     function _launch(string memory name, string memory symbol, bool creatorRewards)
         internal
-        returns (CoilHook hook)
+        returns (CoilHook coil)
     {
         address creator = creatorRewards ? launcher : address(0);
         bytes32 salt = _mine(name, symbol, creator);
         vm.deal(launcher, 1 ether);
         vm.prank(launcher);
         (address token,) = pad.createTokenV4{value: CREATION_FEE}(name, symbol, "ipfs://x", salt, creatorRewards);
-        hook = CoilHook(payable(token));
+        coil = CoilHook(payable(token));
     }
 
-    function _key(CoilHook hook) internal view returns (PoolKey memory) {
+    function _key(CoilHook coil) internal view returns (PoolKey memory) {
         return PoolKey({
             currency0: Currency.wrap(address(0)),
-            currency1: Currency.wrap(address(hook)),
-            fee: hook.POOL_FEE(),
-            tickSpacing: hook.TICK_SPACING(),
-            hooks: IHooks(address(hook))
+            currency1: Currency.wrap(address(coil)),
+            fee: coil.POOL_FEE(),
+            tickSpacing: coil.TICK_SPACING(),
+            hooks: IHooks(address(coil))
         });
     }
 
-    function _buy(CoilHook hook, address who, uint256 ethIn) internal {
-        PoolKey memory key = _key(hook);
+    function _buy(CoilHook coil, address who, uint256 ethIn) internal {
+        PoolKey memory key = _key(coil);
         SwapParams memory params = SwapParams({
             zeroForOne: true, amountSpecified: -int256(ethIn), sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
         });
@@ -120,37 +120,37 @@ contract CoilLaunchpadE2ETest is PosmTestSetup {
     /// @dev Launch through the factory, then trade the minted token — the fee must land.
     function test_Launch_Then_Trade_TakesFee() public {
         uint256 protoFeeBefore = protocolWallet.balance;
-        CoilHook hook = _launch("Snek", "SNEK", false);
+        CoilHook coil = _launch("Snek", "SNEK", false);
 
         // Seeded on the real PoolManager, ownership renounced, creation fee paid.
-        assertTrue(hook.seeded());
-        assertEq(hook.owner(), address(0));
-        assertEq(hook.totalSupply(), SUPPLY);
+        assertTrue(coil.seeded());
+        assertEq(coil.owner(), address(0));
+        assertEq(coil.totalSupply(), SUPPLY);
         assertEq(protocolWallet.balance - protoFeeBefore, CREATION_FEE, "creation fee paid");
 
         // A real buy skims the native protocol fee.
-        _buy(hook, alice, 5 ether);
+        _buy(coil, alice, 5 ether);
         uint256 feeTotal = 5 ether * TOTAL_BPS / 10_000;
-        assertEq(hook.protocolAccruedETH(), feeTotal * P_BPS / TOTAL_BPS, "protocol fee taken on buy");
-        assertGt(hook.balanceOf(alice), 0, "alice received tokens");
+        assertEq(coil.protocolAccruedETH(), feeTotal * P_BPS / TOTAL_BPS, "protocol fee taken on buy");
+        assertGt(coil.balanceOf(alice), 0, "alice received tokens");
 
         // Sweep the protocol cut to the wallet.
         uint256 before = protocolWallet.balance;
-        hook.sweepProtocol();
+        coil.sweepProtocol();
         assertEq(protocolWallet.balance - before, feeTotal * P_BPS / TOTAL_BPS, "protocol cut swept");
     }
 
     /// @dev Creator-Rewards launch: the holder slice is booked to the launcher's creator bucket.
     function test_Launch_CreatorRewards() public {
-        CoilHook hook = _launch("Coily", "COILY", true);
-        assertEq(hook.creator(), launcher);
+        CoilHook coil = _launch("Coily", "COILY", true);
+        assertEq(coil.creator(), launcher);
 
-        _buy(hook, alice, 4 ether); // alice holds, but holder slice goes to the creator bucket
-        assertGt(hook.creatorAccruedETH(), 0, "creator earns the holder slice");
-        assertEq(hook.accPerShareETH(), 0, "no holder dividend accumulation in creator mode");
+        _buy(coil, alice, 4 ether); // alice holds, but holder slice goes to the creator bucket
+        assertGt(coil.creatorAccruedETH(), 0, "creator earns the holder slice");
+        assertEq(coil.accPerShareETH(), 0, "no holder dividend accumulation in creator mode");
 
         uint256 before = launcher.balance;
-        hook.sweepCreator();
+        coil.sweepCreator();
         assertGt(launcher.balance, before, "creator swept their cut");
     }
 }
