@@ -3,7 +3,10 @@ pragma solidity ^0.8.26;
 
 import {Test} from "forge-std/Test.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
+import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
+import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
+import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 
 import {CoilHook} from "../src/CoilHook.sol";
 import {MockPoolManager, MockPermit2, MockPosm} from "./mocks/MockV4.sol";
@@ -43,8 +46,12 @@ contract CoilHookUnitTest is Test {
     MockPosm posm;
     MockPermit2 permit2;
 
-    // Low 14 bits must encode BEFORE_SWAP (bit 7) + BEFORE_SWAP_RETURNS_DELTA (bit 3) = 0x88.
-    address constant HOOK_ADDR = address(uint160(0xCAfE000000000000000000000000000000000088));
+    // Low 14 bits must encode BEFORE_INITIALIZE (bit 13) + BEFORE_SWAP (bit 7) +
+    // BEFORE_SWAP_RETURNS_DELTA (bit 3) = 0x2088.
+    address constant HOOK_ADDR = address(uint160(0xCAFe000000000000000000000000000000002088));
+
+    // The canonical Permit2 address Solady keys its infinite-allowance logic on.
+    address constant CANONICAL_PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
     address protocolWallet = makeAddr("protocolWallet"); // feeRecipient (protocol wallet)
     address treasury = makeAddr("treasury"); // COIL buy&burn
@@ -104,10 +111,79 @@ contract CoilHookUnitTest is Test {
 
     function test_HookPermissions_BeforeSwapReturnsDelta() public view {
         Hooks.Permissions memory p = hook.getHookPermissions();
+        assertTrue(p.beforeInitialize);
         assertTrue(p.beforeSwap);
         assertTrue(p.beforeSwapReturnDelta);
         assertFalse(p.afterSwap);
         assertFalse(p.afterInitialize);
+    }
+
+    /*                 POOL-KEY LOCK (H-01 GUARD)             */
+
+    function _canonicalKey() internal view returns (PoolKey memory) {
+        return PoolKey({
+            currency0: Currency.wrap(address(0)),
+            currency1: Currency.wrap(address(hook)),
+            fee: hook.POOL_FEE(),
+            tickSpacing: hook.TICK_SPACING(),
+            hooks: IHooks(address(hook))
+        });
+    }
+
+    function test_BeforeInitialize_AllowsCanonicalPool() public {
+        // Build the key before vm.prank — its view calls would otherwise consume the prank.
+        PoolKey memory ok = _canonicalKey();
+        vm.prank(address(pm));
+        bytes4 sel = hook.beforeInitialize(address(this), ok, uint160(1 << 96));
+        assertEq(sel, IHooks.beforeInitialize.selector);
+    }
+
+    function test_BeforeInitialize_RejectsRogueFee() public {
+        PoolKey memory bad = _canonicalKey();
+        bad.fee = 3000; // any non-zero LP fee is not the canonical pool
+        vm.prank(address(pm));
+        vm.expectRevert(CoilHook.UnauthorizedPool.selector);
+        hook.beforeInitialize(address(this), bad, uint160(1 << 96));
+    }
+
+    function test_BeforeInitialize_RejectsRogueTickSpacing() public {
+        PoolKey memory bad = _canonicalKey();
+        bad.tickSpacing = 60;
+        vm.prank(address(pm));
+        vm.expectRevert(CoilHook.UnauthorizedPool.selector);
+        hook.beforeInitialize(address(this), bad, uint160(1 << 96));
+    }
+
+    function test_BeforeInitialize_RejectsRogueCurrency() public {
+        // A pool pairing the token against an attacker token instead of native ETH — the vector
+        // that would let a foreign `feeCurrency` pollute the COIL-denominated accounting.
+        PoolKey memory bad = _canonicalKey();
+        bad.currency0 = Currency.wrap(address(0xBAD));
+        vm.prank(address(pm));
+        vm.expectRevert(CoilHook.UnauthorizedPool.selector);
+        hook.beforeInitialize(address(this), bad, uint160(1 << 96));
+    }
+
+    /*                 LP NFT BURN + PERMIT2                  */
+
+    function test_Seed_BurnsPositionNftToDead() public {
+        uint256 expectedId = posm.nextTokenId();
+        uint256 id = hook.seed(uint160(1 << 96), -6000, 0, 1e18);
+        assertEq(id, expectedId, "returns the minted position id");
+        assertEq(hook.hookPositionTokenId(), id, "records the position id");
+        assertEq(posm.ownerOf(id), hook.DEAD(), "position NFT burned to the dead address");
+        assertEq(hook.owner(), address(0), "ownership renounced");
+    }
+
+    function test_Permit2_NoImplicitInfiniteAllowance() public view {
+        // Ordinary holders no longer carry a blanket infinite Permit2 allowance...
+        assertEq(hook.allowance(alice, CANONICAL_PERMIT2), 0, "holder has no implicit permit2 allowance");
+        // ...but the hook keeps the explicit approval it set for the constructor's seed() flow.
+        assertEq(
+            hook.allowance(address(hook), address(permit2)),
+            type(uint256).max,
+            "hook keeps its explicit seed-time permit2 approval"
+        );
     }
 
     function test_FeeConfig_Fixed() public view {
@@ -122,8 +198,8 @@ contract CoilHookUnitTest is Test {
     /*                    CONSTRUCTOR GUARDS                   */
 
     // A second valid-flags address so the constructor clears the address-flag check and we can
-    // observe the fee-config guard itself (0x88 in the low 14 bits, like HOOK_ADDR).
-    address constant HOOK_ADDR2 = address(uint160(0xBEef000000000000000000000000000000000088));
+    // observe the fee-config guard itself (0x2088 in the low 14 bits, like HOOK_ADDR).
+    address constant HOOK_ADDR2 = address(uint160(0xBEeF000000000000000000000000000000002088));
 
     function _deployWithFees(CoilHook.FeeConfig memory fees) internal {
         deployCodeTo(

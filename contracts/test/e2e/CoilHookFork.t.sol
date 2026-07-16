@@ -13,6 +13,10 @@ import {LiquidityAmounts} from "@uniswap/v4-periphery/src/libraries/LiquidityAmo
 
 import {CoilHook} from "../../src/CoilHook.sol";
 
+interface IERC721Owner {
+    function ownerOf(uint256 tokenId) external view returns (address);
+}
+
 /// @dev The definitive pre-launch validation for the v4 fee engine: deploy → seed → buy → the
 ///   hook skims a native fee → holder earns → holder claims → protocol sweeps, all against the
 ///   REAL PoolManager / PositionManager / Permit2 on Robinhood Chain. Run with:
@@ -28,8 +32,9 @@ contract CoilHookForkTest is Test {
     address constant DEFAULT_POSM = 0x58daec3116aae6D93017bAAea7749052E8a04fA7;
     address constant DEFAULT_PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
-    // Low 14 bits encode BEFORE_SWAP (bit 7) + BEFORE_SWAP_RETURNS_DELTA (bit 3) = 0x88.
-    address constant HOOK_ADDR = address(uint160(0xCAfE000000000000000000000000000000000088));
+    // Low 14 bits encode BEFORE_INITIALIZE (bit 13) + BEFORE_SWAP (bit 7) +
+    // BEFORE_SWAP_RETURNS_DELTA (bit 3) = 0x2088.
+    address constant HOOK_ADDR = address(uint160(0xCAFe000000000000000000000000000000002088));
 
     int24 constant TICK_LOWER = -6000;
     int24 constant TICK_UPPER = 0;
@@ -140,6 +145,7 @@ contract CoilHookForkTest is Test {
         assertTrue(hook.seeded());
         assertEq(hook.hookPositionTokenId(), posId);
         assertEq(hook.owner(), address(0), "ownership renounced");
+        assertEq(IERC721Owner(posm).ownerOf(posId), hook.DEAD(), "LP position NFT burned to dead");
 
         // 2. Buy → the hook skims a native protocol fee out of the swap.
         _buy(alice, 5 ether);

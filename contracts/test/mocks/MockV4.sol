@@ -29,6 +29,9 @@ contract MockPosm {
     uint256 public feeToken;
     address public token;
 
+    /// @dev Minimal ERC721 ownership tracking so `seed()`'s position-NFT burn can be exercised.
+    mapping(uint256 => address) public ownerOf;
+
     function setToken(address t) external {
         token = t;
     }
@@ -43,9 +46,16 @@ contract MockPosm {
     }
 
     function multicall(bytes[] calldata) external payable returns (bytes[] memory results) {
-        // Simulate the position NFT being minted by the pool.
+        // Simulate the position NFT being minted by the pool to the caller (the hook).
+        ownerOf[counter] = msg.sender;
         counter += 1;
         return new bytes[](0);
+    }
+
+    /// @dev Minimal ERC721 transfer so the hook can burn the position NFT in `seed()`.
+    function transferFrom(address from, address to, uint256 tokenId) external {
+        require(ownerOf[tokenId] == from, "MockPosm: not owner");
+        ownerOf[tokenId] = to;
     }
 
     function modifyLiquidities(bytes calldata, uint256) external payable {

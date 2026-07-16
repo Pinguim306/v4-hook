@@ -32,7 +32,8 @@ contract CoilLaunchpadUnitTest is Test {
     int24 constant TICK_LOWER = -6000;
     int24 constant TICK_UPPER = 0;
 
-    uint160 constant FLAGS = uint160(Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG);
+    uint160 constant FLAGS =
+        uint160(Hooks.BEFORE_INITIALIZE_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG);
 
     function setUp() public {
         pm = new MockPoolManager();

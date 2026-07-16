@@ -25,6 +25,10 @@ interface IPoolInit {
     function initializePool(PoolKey memory key, uint160 sqrtPriceX96) external;
 }
 
+interface IERC721Burnable {
+    function transferFrom(address from, address to, uint256 tokenId) external;
+}
+
 /// @notice A Uniswap v4 launchpad token whose hook skims a native per-swap fee.
 /// @author Coil — the v4 successor to the v3 launchpad (github.com not linked on purpose).
 /// @dev The profit engine for Coil on v4. Where the v3 launchpad captured post-graduation
@@ -65,6 +69,9 @@ contract CoilHook is ERC20, BaseHook, Ownable, ReentrancyGuard {
     /// @dev A computed fee did not fit in int128 (unreachable for realistic swap sizes).
     error FeeOverflow();
 
+    /// @dev An attempt to initialize a pool with a non-canonical key against this hook.
+    error UnauthorizedPool();
+
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                           EVENTS                           */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -98,6 +105,9 @@ contract CoilHook is ERC20, BaseHook, Ownable, ReentrancyGuard {
     /// @dev Accumulator scaling. Shares are token wei (ERC-20 balance), so 1e18 keeps the
     ///   per-share rounding floor negligible for any realistic circulating supply.
     uint256 private constant ACC_SCALE = 1e18;
+
+    /// @dev The burn sink for the locked LP position NFT (see `seed()`).
+    address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         IMMUTABLES                         */
@@ -245,8 +255,31 @@ contract CoilHook is ERC20, BaseHook, Ownable, ReentrancyGuard {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     function getHookPermissions() public pure override returns (Hooks.Permissions memory p) {
+        p.beforeInitialize = true;
         p.beforeSwap = true;
         p.beforeSwapReturnDelta = true;
+    }
+
+    /// @notice Lock this hook to its one canonical pool.
+    /// @dev A hook fires for EVERY pool that names it, so without this guard anyone could
+    ///   initialize a rogue pool (different fee, tickSpacing, or currency pairing) pointing at
+    ///   this hook. Swaps on that pool would still hit `_beforeSwap`, and its `feeCurrency` could
+    ///   be an arbitrary token — the hook would `take()` that foreign token yet credit it into the
+    ///   COIL-denominated fee/dividend buckets, corrupting holder accounting. Only the exact
+    ///   ETH/self pool from `_hostKey()` is ever allowed to initialize.
+    function _beforeInitialize(address, PoolKey calldata key, uint160)
+        internal
+        view
+        override
+        returns (bytes4)
+    {
+        PoolKey memory host = _hostKey();
+        if (
+            Currency.unwrap(key.currency0) != Currency.unwrap(host.currency0)
+                || Currency.unwrap(key.currency1) != Currency.unwrap(host.currency1) || key.fee != host.fee
+                || key.tickSpacing != host.tickSpacing || address(key.hooks) != address(host.hooks)
+        ) revert UnauthorizedPool();
+        return IHooks.beforeInitialize.selector;
     }
 
     /// @notice Skim the fee out of every swap and split it in the fixed waterfall.
@@ -356,6 +389,12 @@ contract CoilHook is ERC20, BaseHook, Ownable, ReentrancyGuard {
         tokenId = IPositionManager(POSM).nextTokenId();
         hookPositionTokenId = tokenId;
         IPositionManager(POSM).multicall(mc);
+
+        // Burn the LP position NFT to the dead address. The pool's LP fee is 0 and the hook never
+        // collects on the position, so it needs the NFT for nothing after seeding — sending it to
+        // a dead address makes the liquidity lock provable to any explorer/scanner (position owner
+        // = dead), instead of "owned by an unknown contract".
+        IERC721Burnable(POSM).transferFrom(address(this), DEAD, tokenId);
 
         emit Seeded(tokenId, sqrtPriceX96, liquidity);
 
@@ -486,6 +525,15 @@ contract CoilHook is ERC20, BaseHook, Ownable, ReentrancyGuard {
             if (!ok) revert EthSendFailed();
         }
         emit CreatorSwept(ethOut, tokenOut);
+    }
+
+    /// @dev Disable Solady's default of granting the canonical Permit2 an implicit infinite
+    ///   allowance for every holder. The hook still approves Permit2 explicitly in the constructor
+    ///   for the one-shot `seed()`, so the launch is unaffected; but ordinary holders keep a zero
+    ///   Permit2 allowance until they opt in, so scanners don't flag a blanket "anyone can move
+    ///   your tokens via Permit2" approval on every wallet.
+    function _givePermit2InfiniteAllowance() internal pure override returns (bool) {
+        return false;
     }
 
     receive() external payable {}
