@@ -27,7 +27,11 @@ contract CoilHookHarness is CoilHook {
         string memory name_,
         string memory symbol_,
         FeeConfig memory fees_
-    ) CoilHook(pm, owner_, posm_, permit2_, feeRecipient_, treasury_, creator_, supply_, name_, symbol_, fees_) {}
+    )
+        CoilHook(
+            pm, owner_, posm_, permit2_, feeRecipient_, treasury_, creator_, supply_, name_, symbol_, fees_
+        )
+    {}
 
     /// @dev Simulate a swap fee already taken into the hook: for ETH, `vm.deal` the hook first;
     ///   for the token, the hook already custodies SUPPLY. Then split it exactly as `_beforeSwap`
@@ -70,7 +74,8 @@ contract CoilHookUnitTest is Test {
         posm = new MockPosm();
         permit2 = new MockPermit2();
 
-        CoilHook.FeeConfig memory fees = CoilHook.FeeConfig({protocolBps: P_BPS, holderBps: H_BPS, burnBps: B_BPS});
+        CoilHook.FeeConfig memory fees =
+            CoilHook.FeeConfig({protocolBps: P_BPS, holderBps: H_BPS, burnBps: B_BPS});
         deployCodeTo(
             "CoilHookUnit.t.sol:CoilHookHarness",
             abi.encode(
@@ -205,8 +210,17 @@ contract CoilHookUnitTest is Test {
         deployCodeTo(
             "CoilHookUnit.t.sol:CoilHookHarness",
             abi.encode(
-                IPoolManager(address(pm)), address(this), address(posm), address(permit2),
-                protocolWallet, treasury, address(0), SUPPLY, "x", "x", fees
+                IPoolManager(address(pm)),
+                address(this),
+                address(posm),
+                address(permit2),
+                protocolWallet,
+                treasury,
+                address(0),
+                SUPPLY,
+                "x",
+                "x",
+                fees
             ),
             HOOK_ADDR2
         );
@@ -369,8 +383,17 @@ contract CoilHookUnitTest is Test {
         deployCodeTo(
             "CoilHookUnit.t.sol:CoilHookHarness",
             abi.encode(
-                IPoolManager(address(pm)), address(this), address(posm), address(permit2),
-                protocolWallet, treasury, creatorWallet, SUPPLY, "Coil Token", "COIL-T", fees
+                IPoolManager(address(pm)),
+                address(this),
+                address(posm),
+                address(permit2),
+                protocolWallet,
+                treasury,
+                creatorWallet,
+                SUPPLY,
+                "Coil Token",
+                "COIL-T",
+                fees
             ),
             HOOK_ADDR2
         );
@@ -411,10 +434,7 @@ contract CoilHookUnitTest is Test {
         vm.prank(alice);
         hook.transfer(carol, 4_000 ether);
         // Excluded addresses (hook, pool, protocolWallet, treasury) never count; the three EOAs do.
-        assertEq(
-            hook.circulating(),
-            hook.balanceOf(alice) + hook.balanceOf(bob) + hook.balanceOf(carol)
-        );
+        assertEq(hook.circulating(), hook.balanceOf(alice) + hook.balanceOf(bob) + hook.balanceOf(carol));
     }
 
     function testFuzz_NoDividendDust_ExceedsPot(uint256 a, uint256 b, uint256 fee) public {

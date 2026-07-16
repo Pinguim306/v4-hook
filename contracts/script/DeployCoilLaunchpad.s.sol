@@ -54,8 +54,16 @@ contract DeployCoilLaunchpad is Script {
 
         vm.startBroadcast();
         pad = new CoilLaunchpad(
-            owner, IPoolManager(poolManager), posm, permit2, feeRecipient, treasury, creationFee,
-            supply, fees, launch
+            owner,
+            IPoolManager(poolManager),
+            posm,
+            permit2,
+            feeRecipient,
+            treasury,
+            creationFee,
+            supply,
+            fees,
+            launch
         );
         vm.stopBroadcast();
 

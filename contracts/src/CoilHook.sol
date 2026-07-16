@@ -16,8 +16,11 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {SwapParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
-import {BeforeSwapDelta, toBeforeSwapDelta, BeforeSwapDeltaLibrary} from
-    "@uniswap/v4-core/src/types/BeforeSwapDelta.sol";
+import {
+    BeforeSwapDelta,
+    toBeforeSwapDelta,
+    BeforeSwapDeltaLibrary
+} from "@uniswap/v4-core/src/types/BeforeSwapDelta.sol";
 
 import {BaseHook} from "./base/BaseHook.sol";
 
@@ -293,7 +296,11 @@ contract CoilHook is ERC20, BaseHook, Ownable, ReentrancyGuard {
         PoolKey calldata key,
         SwapParams calldata params,
         bytes calldata /*hookData*/
-    ) internal override returns (bytes4, BeforeSwapDelta, uint24) {
+    )
+        internal
+        override
+        returns (bytes4, BeforeSwapDelta, uint24)
+    {
         bool exactInput = params.amountSpecified < 0;
         uint256 specifiedAmount =
             exactInput ? uint256(-params.amountSpecified) : uint256(params.amountSpecified);
@@ -434,7 +441,14 @@ contract CoilHook is ERC20, BaseHook, Ownable, ReentrancyGuard {
         _debtTOKEN[a] = accPerShareTOKEN;
     }
 
-    function _beforeTokenTransfer(address from, address to, uint256 /*amount*/ ) internal override {
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 /*amount*/
+    )
+        internal
+        override
+    {
         // Credit both parties at the current accumulator before their balances change, so no one
         // earns on tokens they did not hold while the fee accrued.
         _settle(from);

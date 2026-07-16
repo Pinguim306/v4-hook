@@ -54,8 +54,16 @@ contract CoilLaunchpadUnitTest is Test {
         });
 
         pad = new CoilLaunchpad(
-            owner, IPoolManager(address(pm)), address(posm), address(permit2),
-            protocolWallet, treasury, CREATION_FEE, SUPPLY, fees, launch
+            owner,
+            IPoolManager(address(pm)),
+            address(posm),
+            address(permit2),
+            protocolWallet,
+            treasury,
+            CREATION_FEE,
+            SUPPLY,
+            fees,
+            launch
         );
     }
 

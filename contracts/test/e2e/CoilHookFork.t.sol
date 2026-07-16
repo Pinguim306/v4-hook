@@ -130,7 +130,9 @@ contract CoilHookForkTest is Test {
         hook.approve(address(swapRouter), tokenIn);
         PoolKey memory key = _key();
         SwapParams memory params = SwapParams({
-            zeroForOne: false, amountSpecified: -int256(tokenIn), sqrtPriceLimitX96: TickMath.MAX_SQRT_PRICE - 1
+            zeroForOne: false,
+            amountSpecified: -int256(tokenIn),
+            sqrtPriceLimitX96: TickMath.MAX_SQRT_PRICE - 1
         });
         PoolSwapTest.TestSettings memory settings =
             PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false});

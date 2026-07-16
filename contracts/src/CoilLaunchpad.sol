@@ -268,8 +268,17 @@ contract CoilLaunchpad is Ownable, ReentrancyGuard {
         returns (CoilHook hook)
     {
         hook = new CoilHook{salt: salt}(
-            poolManager, address(this), posm, permit2, feeRecipient, platformTreasury, creator,
-            tokenSupply, name, symbol, fees
+            poolManager,
+            address(this),
+            posm,
+            permit2,
+            feeRecipient,
+            platformTreasury,
+            creator,
+            tokenSupply,
+            name,
+            symbol,
+            fees
         );
     }
 
