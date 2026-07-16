@@ -18,7 +18,10 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: stable
+          # Pinned: forge fmt's style changes between releases, and `stable` drifting is
+          # exactly what turned fmt --check red on every push. The sources are formatted
+          # with this version — bump the pin and re-run `forge fmt` together.
+          version: v1.7.1
 
       - name: Install dependencies (pinned)
         run: chmod +x bootstrap.sh && ./bootstrap.sh
