@@ -84,6 +84,7 @@ if [ $# -ge 1 ]; then
 fi
 
 count=$(cast call "$LAUNCHPAD" "marketsCount()(uint256)" --rpc-url "$RPC" | num)
+[ -n "$count" ] || { echo "Could not read marketsCount from $RPC"; exit 1; }
 echo "Launchpad $LAUNCHPAD has $count markets"
 
 failed=0

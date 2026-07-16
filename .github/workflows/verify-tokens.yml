@@ -1,0 +1,38 @@
+name: Verify launched tokens
+
+# Every CoilHook embeds per-launch immutables, so Blockscout can't similar-match
+# them — each launched token needs its own source verification. This sweep runs
+# verify-tokens.sh on a schedule: already-verified tokens are skipped, new ones
+# get submitted, so every launch shows the green ✓ within the half hour.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+# Never let two sweeps overlap — Blockscout rate-limits aggressively.
+concurrency:
+  group: verify-tokens
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Blockscout verification sweep
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: contracts
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Install dependencies (pinned)
+        run: chmod +x bootstrap.sh && ./bootstrap.sh
+
+      - name: Verify all launched tokens on Blockscout
+        run: chmod +x verify-tokens.sh && ./verify-tokens.sh
