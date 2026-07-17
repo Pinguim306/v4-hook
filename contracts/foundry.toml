@@ -21,8 +21,11 @@ runs = 256
 
 # E2E/fork profile — mirrors upstream v4-core's own settings (via-IR + 44444444 runs is the
 # combination Uniswap ships and tests Pool.sol with; legacy codegen is not an option for us
-# because QuiverHook requires via-IR). Contract size is irrelevant here — tests place code
-# with vm.etch. Separate out dir so artifacts never mix with deploy artifacts.
+# because QuiverHook requires via-IR). QuiverE2E's PosmTestSetup drags Pool.sol into this
+# compilation unit, so the runs value cannot be lowered — at 800 Pool.sol goes stack-too-deep
+# and the whole e2e step dies. Contract size (EIP-170) is irrelevant here: nothing in test/e2e
+# CREATE-deploys CoilLaunchpad; hooks are placed with deployCodeTo/vm.etch. Separate out dir so
+# artifacts never mix with deploy artifacts.
 # Run with:  FOUNDRY_PROFILE=e2e forge test --match-path "test/e2e/**" -vv
 [profile.e2e]
 src = "src"
@@ -31,7 +34,7 @@ libs = ["lib"]
 solc = "0.8.26"
 evm_version = "cancun"
 optimizer = true
-optimizer_runs = 800
+optimizer_runs = 44444444
 via_ir = true
 ffi = false
 gas_limit = "3000000000"
