@@ -1,0 +1,34 @@
+Compiling 181 files with Solc 0.8.26
+Solc 0.8.26 finished in 46.32s
+Compiler run successful!
+
+Ran 1 test for test/e2e/QuiverFork.t.sol:QuiverForkTest
+[SKIP: skipped] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 507.80µs (0.00ns CPU time)
+
+Ran 1 test for test/e2e/CoilHookFork.t.sol:CoilHookForkTest
+[SKIP: skipped] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 783.58µs (0.00ns CPU time)
+
+Ran 18 tests for test/e2e/QuiverE2E.t.sol:QuiverE2ETest
+[PASS] test_Art_SeedDeterministic() (gas: 892289)
+[PASS] test_Art_TokenURI_IsDataJson() (gas: 1128358)
+[PASS] test_Buy_MintsArrowsToBuyer() (gas: 826162)
+[PASS] test_ClaimMany_SkipsBurned() (gas: 1325535)
+[PASS] test_Fees_AccrueAndClaim() (gas: 1564656)
+[PASS] test_HookPermissions_OnlyAfterSwap() (gas: 9118)
+[PASS] test_Invariant_SharesEqualArrows_AfterChurn() (gas: 1211515)
+[PASS] test_Metadata() (gas: 29388)
+[PASS] test_Mirror_ApproveAndTransfer() (gas: 868984)
+[PASS] test_Mirror_SelfTransfer_Reverts() (gas: 774578)
+[PASS] test_Mirror_SupportsInterface() (gas: 8188)
+[PASS] test_Mirror_TransferMovesTokenAndArrow() (gas: 893922)
+[PASS] test_Mirror_UnauthorizedTransfer_Reverts() (gas: 783026)
+[PASS] test_PartialSell_BurnsArrow() (gas: 892365)
+[PASS] test_Seed_MintsPositionAndRenounces() (gas: 449071)
+[PASS] test_Seed_Twice_Reverts() (gas: 448051)
+[PASS] test_TokenURI_UnknownId_Reverts() (gas: 451897)
+[PASS] test_WholeTransfer_MovesArrows() (gas: 900239)
+Suite result: ok. 18 passed; 0 failed; 0 skipped; finished in 9.64ms (18.87ms CPU time)
+
+Ran 3 test suites in 10.40ms (10.93ms CPU time): 18 tests passed, 0 failed, 2 skipped (20 total tests)
