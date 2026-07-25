@@ -2,24 +2,38 @@ name: Verify launched tokens
 
 # Every CoilHook embeds per-launch immutables, so Blockscout can't similar-match
 # them — each launched token needs its own source verification. This sweep runs
-# verify-tokens.sh on a schedule: already-verified tokens are skipped, new ones
-# get submitted, so every launch shows the green ✓ within the half hour.
+# verify-tokens.sh per chain on a schedule: already-verified tokens are skipped,
+# new ones get submitted, so every launch shows the green ✓ within the half hour.
 
 on:
   schedule:
     - cron: "*/30 * * * *"
   workflow_dispatch:
 
-# Never let two sweeps overlap — Blockscout rate-limits aggressively.
-concurrency:
-  group: verify-tokens
-  cancel-in-progress: false
-
 jobs:
   verify:
-    name: Blockscout verification sweep
+    name: Verify (${{ matrix.chain }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - chain: robinhood
+            rpc: https://rpc.mainnet.chain.robinhood.com
+            launchpad: "0x089450e936d758b4c3E122Aa80A754aBF1bd0FFD"
+            verifier: https://robinhoodchain.blockscout.com/api
+          - chain: arc-testnet
+            rpc: https://rpc.testnet.arc.network
+            launchpad: "0x652B2dC7D9EFcc3B3Af9a71cFeaC8dDf6F06bF13"
+            verifier: https://testnet.arcscan.app/api
+          # Arc mainnet: add here after the launchpad deploy (see docs/MULTICHAIN-ARC.md).
+    # Never let two sweeps of the SAME chain overlap — Blockscout rate-limits
+    # aggressively. Different chains hit different explorers, so they may run
+    # in parallel.
+    concurrency:
+      group: verify-tokens-${{ matrix.chain }}
+      cancel-in-progress: false
     defaults:
       run:
         working-directory: contracts
@@ -35,4 +49,8 @@ jobs:
         run: chmod +x bootstrap.sh && ./bootstrap.sh
 
       - name: Verify all launched tokens on Blockscout
+        env:
+          RPC: ${{ matrix.rpc }}
+          LAUNCHPAD: ${{ matrix.launchpad }}
+          VERIFIER_URL: ${{ matrix.verifier }}
         run: chmod +x verify-tokens.sh && ./verify-tokens.sh
