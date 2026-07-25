@@ -1,5 +1,31 @@
 # Deployments
 
+## Arc Testnet (Circle) — self-deployed Uniswap v4 infrastructure
+
+Deployed 2026-07-17 via `script/arc/DeployArcV4Stack.s.sol` (see docs/MULTICHAIN-ARC.md).
+
+| | |
+| --- | --- |
+| Chain | Arc (Circle L1 "stablechain") — public testnet |
+| Chain ID | `5042002` |
+| RPC | `https://rpc.testnet.arc.network` |
+| Explorer | `https://testnet.arcscan.app` (Blockscout) |
+| Native gas | USDC (18-decimal native scaling, probed on-chain) |
+| Deployer / PoolManager owner | `0xD2bb88DCCF3835B5dC24D08e6Bf40578a5889265` |
+
+| Contract | Address |
+| --- | --- |
+| Uniswap v4 **PoolManager** | `0x46Eb19af432954d126077E1764ef5F6A0013dE68` |
+| **WrappedNative** (WUSDC, 18 dec) | `0xCAC743f6e58aB2585B513457867E6848aBa145c8` |
+| **PositionDescriptor** (no proxy) | `0x1b0509784F26337d5dcb45513d17761fBBfce02D` |
+| Uniswap v4 **PositionManager** | `0xf1F19d6E6345E233D6D34EF3e0c390CE5DFf7D49` |
+| **Permit2** (pre-existing, canonical) | `0x000000000022D473030F116dDEE9F6B43aC78BA3` |
+
+Compiler notes for verification: PoolManager/WrappedNative at profile.e2e settings
+(0.8.26, via-IR, 44444444 runs); PositionManager at 500 runs and PositionDescriptor
+at 1 run (the e2e profile's compilation_restrictions, mirroring upstream).
+CoilLaunchpad for Arc: pending (waiting on launch-price ticks — see MULTICHAIN-ARC.md).
+
 ## Robinhood Chain — Uniswap v4 infrastructure
 
 | | |
