@@ -44,6 +44,19 @@ gas_limit = "3000000000"
 skip = []
 fs_permissions = [{ access = "read", path = "./" }]
 
+# Mirror upstream v4-periphery's own deploy settings: at 44444444 runs PositionManager
+# (~27KB) and PositionDescriptor (~31KB) blow past EIP-170; upstream pins them to 500 / 1
+# optimizer runs respectively so each fits under 24576 bytes. Needed by the Arc stack deploy
+# (script/arc) and keeps PosmTestSetup's vm.getCode artifacts deployable in e2e tests.
+additional_compiler_profiles = [
+    { name = "posm", via_ir = true, optimizer_runs = 500 },
+    { name = "descriptor", via_ir = true, optimizer_runs = 1 },
+]
+compilation_restrictions = [
+    { paths = "lib/v4-periphery/src/PositionManager.sol", optimizer_runs = 500 },
+    { paths = "lib/v4-periphery/src/PositionDescriptor.sol", optimizer_runs = 1 },
+]
+
 [profile.e2e.fuzz]
 runs = 256
 
