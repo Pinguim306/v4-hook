@@ -109,15 +109,18 @@ os mesmos scripts servem (`preflight-arc.sh`, `DeployArcV4Stack`,
 `DeployCoilLaunchpad`, `LaunchCoilToken`).
 
 0. **Símbolo no wallet é USDC**, não ETH (o form do MetaMask sugere ETH — corrigir).
-1. `ARC_ENV=mainnet ./preflight-arc.sh` — descobre RPC utilizável (candidatos:
-   `rpc.arc.network`, Infura `arc-mainnet`, QuickNode, dRPC), confirma chain 5042,
-   cancun e Permit2. Explorer esperado: `arcscan.app` (Blockscout).
+1. `ARC_ENV=mainnet ./preflight-arc.sh` — RPC público que respondeu (2026-07-17):
+   `https://5042.rpc.thirdweb.com`. Preflight na mainnet: chain 5042 ✔, cancun ✔,
+   Permit2 canônico ✔. Explorer esperado: `arcscan.app` (Blockscout).
 2. **Checkpoint de licença ANTES do deploy do stack**: verificar se a Uniswap
    (ou parceiro) já publicou v4 oficial na Arc mainnet — se sim, usar esses
    endereços (`POOL_MANAGER=... POSITION_MANAGER=...` no preflight) e pular o
    passo 3. Se não: deploy próprio de v4-core em mainnet é uso de produção sob
    BUSL-1.1 até jun/2027 — decisão consciente do operador (grant da governança
    Uniswap é o caminho formal).
+   Status 2026-07-17: docs.uniswap.org/contracts/v4/deployments NÃO lista a Arc
+   (lista a Robinhood Chain — o v4 de lá é oficial). Mainnet da Arc é recém-
+   lançada; vale rechecar a página antes de decidir pelo deploy próprio.
 3. Financiar a wallet de deploy com USDC real (bridges: CCTP/LiFi/relay) e
    **re-provar a escala de decimais do nativo na mainnet** (`cast balance` —
    não assumir os 18-dec do testnet).
