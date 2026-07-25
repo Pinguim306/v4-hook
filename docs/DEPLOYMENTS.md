@@ -24,7 +24,22 @@ Deployed 2026-07-17 via `script/arc/DeployArcV4Stack.s.sol` (see docs/MULTICHAIN
 Compiler notes for verification: PoolManager/WrappedNative at profile.e2e settings
 (0.8.26, via-IR, 44444444 runs); PositionManager at 500 runs and PositionDescriptor
 at 1 run (the e2e profile's compilation_restrictions, mirroring upstream).
-CoilLaunchpad for Arc: pending (waiting on launch-price ticks — see MULTICHAIN-ARC.md).
+
+### Coil contracts on Arc Testnet
+
+| | |
+| --- | --- |
+| **CoilLaunchpad** | `0x652B2dC7D9EFcc3B3Af9a71cFeaC8dDf6F06bF13` |
+| Deploy tx | `0x0dae67295381fcb9253a592d69887cea60d7fc8990519831254dd755dcc00ab5` |
+| Compiler | default profile (0.8.26, via-IR, 800 runs) — same as profile.verify |
+| Token supply / creation fee | 1e27 (1B) / 1e18 (1 USDC) |
+| Fees (protocol/holder/burn bps) | 50 / 30 / 20 |
+| Ticks (launch range) | `TICK_LOWER=55200`, `TICK_UPPER=124200` (~$4,040 launch mcap, ~1000x range) |
+| Hook flags to mine | `0x2088` (BEFORE_INITIALIZE + BEFORE_SWAP + BEFORE_SWAP_RETURNS_DELTA) |
+| Owner / feeRecipient / treasury | `0xD2bb88DCCF3835B5dC24D08e6Bf40578a5889265` (testnet ops wallet) |
+
+First launchpad carrying CoilHook v2 (canonical-pool guard, LP-NFT burn at seed,
+no implicit Permit2 allowance). Launch test tokens with `script/LaunchCoilToken.s.sol`.
 
 ## Robinhood Chain — Uniswap v4 infrastructure
 
