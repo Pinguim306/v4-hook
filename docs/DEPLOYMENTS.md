@@ -41,6 +41,11 @@ at 1 run (the e2e profile's compilation_restrictions, mirroring upstream).
 First launchpad carrying CoilHook v2 (canonical-pool guard, LP-NFT burn at seed,
 no implicit Permit2 allowance). Launch test tokens with `script/LaunchCoilToken.s.sol`.
 
+First launch (2026-07-17): "Arc Test" (ARCT) at
+`0xdC44E5285F3D396E922C9FE877Bd9893c2b2E088` (Loop Rewards, POSM position #1,
+launch tx `0x135e5e607ac3b5756613e9c4ee8042a69014fde37a5367cffdc26fddc50b1501`) —
+the first CoilHook v2 token anywhere.
+
 ## Robinhood Chain — Uniswap v4 infrastructure
 
 | | |
