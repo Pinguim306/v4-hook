@@ -124,6 +124,10 @@ os mesmos scripts servem (`preflight-arc.sh`, `DeployArcV4Stack`,
 3. Financiar a wallet de deploy com USDC real (bridges: CCTP/LiFi/relay) e
    **re-provar a escala de decimais do nativo na mainnet** (`cast balance` —
    não assumir os 18-dec do testnet).
+   Provado 2026-07-17: mainnet também escala o nativo em **18 decimais**
+   (balance de $0,19 lido como 1,947e17) → `NATIVE_DECIMALS=18` também lá.
+   Custo de referência do testnet p/ o deploy completo: ~0,6 USDC de gás —
+   financiar a wallet com uns $3–5 dá folga.
 4. `DeployArcV4Stack` (perfil e2e) com `POOL_MANAGER_OWNER` = carteira de
    admin de produção (idealmente multisig; o owner só controla protocol fees
    do PoolManager e pode renunciar).
