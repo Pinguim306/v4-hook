@@ -3,6 +3,8 @@
 
 # Foundry
 contracts/out/
+contracts/out-e2e/
+contracts/out-verify/
 contracts/cache/
 contracts/broadcast/
 # Dependencies are pinned + reinstalled via contracts/bootstrap.sh (see CI)
