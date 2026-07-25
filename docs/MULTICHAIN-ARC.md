@@ -63,15 +63,36 @@ USDC no `platformTreasury` da Arc. Opções:
 ## Fases
 
 **Fase 1 — piloto no Arc testnet (contracts, este repo)**
-1. `./preflight-arc.sh` (na sua máquina) — valida RPC, chain id, cancun,
-   escala de decimais do nativo, Permit2/CREATE2 proxy.
-2. Faucet de USDC de teste na wallet de deploy.
-3. Deploy do stack v4 (PoolManager → Permit2 se faltar → WUSDC → POSM).
-4. Recomputar launch config (sqrtPrice/liquidity/creationFee) para nativo 6-dec.
-5. Deploy CoilLaunchpad + CoilSwapRouter + (opcional) burner/treasury.
-6. Launch de um token de teste ponta a ponta; registrar tudo em DEPLOYMENTS.md.
-7. Verificação no Blockscout da Arc (`verify-tokens.sh` com
-   `VERIFIER_URL=https://testnet.arcscan.app/api`).
+
+Preflight já executado (2026-07-17): chain id ✔, cancun ✔, **Permit2 já está no
+endereço canônico** ✔; PoolManager/POSM/wrapped-native não existem → deploy nosso.
+
+1. Faucet de USDC de teste na wallet de deploy e **provar a escala do nativo**:
+   `cast balance $WALLET --rpc-url https://rpc.testnet.arc.network`
+   (1 USDC do faucet → `1000000` = 6-dec; `1e18` = escala 18-dec).
+2. Deploy do stack v4 (`script/arc/DeployArcV4Stack.s.sol` — PoolManager +
+   WrappedNative "WUSDC" + PositionDescriptor + POSM; Permit2 reaproveitado):
+   ```bash
+   POOL_MANAGER_OWNER=<sua wallet> NATIVE_DECIMALS=6 \
+   FOUNDRY_PROFILE=e2e forge script script/arc/DeployArcV4Stack.s.sol:DeployArcV4Stack \
+     --rpc-url https://rpc.testnet.arc.network --broadcast --private-key $PK
+   ```
+3. Escolher preço de launch em USDC (ticks) — depende da escala provada no
+   passo 1; recomputar `TICK_LOWER/TICK_UPPER` para o alvo de market cap.
+4. Deploy da CoilLaunchpad apontando para o stack novo:
+   ```bash
+   POOL_MANAGER=<do passo 2> POSITION_MANAGER=<do passo 2> \
+   PERMIT2=0x000000000022D473030F116dDEE9F6B43aC78BA3 \
+   LAUNCHPAD_OWNER=<wallet> FEE_RECIPIENT=<wallet> PLATFORM_TREASURY=<treasury Arc> \
+   TOKEN_SUPPLY=1000000000000000000000000000 CREATION_FEE=<em unidades nativas> \
+   TICK_LOWER=<passo 3> TICK_UPPER=<passo 3> \
+   FOUNDRY_PROFILE=e2e forge script script/DeployCoilLaunchpad.s.sol:DeployCoilLaunchpad \
+     --rpc-url https://rpc.testnet.arc.network --broadcast --private-key $PK
+   ```
+5. Deploy do CoilSwapRouter (fonte no repo do site) + launch de um token de
+   teste ponta a ponta; registrar tudo em DEPLOYMENTS.md.
+6. Verificação no Blockscout da Arc (`verify-tokens.sh` com
+   `RPC=https://rpc.testnet.arc.network LAUNCHPAD=<novo> VERIFIER_URL=https://testnet.arcscan.app/api`).
 
 **Fase 2 — frontend multi-chain (repo OuroborosRH)**
 - wagmi com N chains; registry por chain (launchpads, router, poolManager,

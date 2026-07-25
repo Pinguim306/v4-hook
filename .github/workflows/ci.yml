@@ -38,6 +38,9 @@ jobs:
       - name: Test (e2e — real PoolManager/POSM, upstream compiler settings)
         run: FOUNDRY_PROFILE=e2e forge test --match-path "test/e2e/**" -vv
 
+      - name: Build Arc v4-stack deploy script (e2e profile, mostly cache-hot)
+        run: FOUNDRY_PROFILE=e2e forge build script/arc/DeployArcV4Stack.s.sol
+
   web:
     name: Web (vite build)
     runs-on: ubuntu-latest

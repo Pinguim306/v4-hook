@@ -13,7 +13,9 @@ optimizer = true
 optimizer_runs = 800
 via_ir = true
 ffi = false
-skip = ["test/e2e/**"]
+# script/arc pulls in v4-core's Pool.sol (PoolManager deploy), which only compiles under the
+# e2e profile's optimizer settings — run it with FOUNDRY_PROFILE=e2e.
+skip = ["test/e2e/**", "script/arc/**"]
 fs_permissions = [{ access = "read", path = "./" }]
 
 [profile.default.fuzz]
@@ -60,7 +62,7 @@ ffi = false
 # CoilLaunchpad embeds `new CoilHook{salt}(...)` in a large function; the legacy pipeline goes
 # stack-too-deep on it (it needs via-IR), so it is skipped in this no-via-IR profile. Its logic is
 # covered by CoilLaunchpadUnit under the default (via-IR) profile: `forge test --use ./solc-wrapper.js`.
-skip = ["test/e2e/**", "src/CoilLaunchpad.sol", "test/CoilLaunchpadUnit.t.sol"]
+skip = ["test/e2e/**", "script/arc/**", "src/CoilLaunchpad.sol", "test/CoilLaunchpadUnit.t.sol"]
 fs_permissions = [{ access = "read", path = "./" }]
 
 [profile.sandbox.fuzz]
