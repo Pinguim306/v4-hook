@@ -2,8 +2,6 @@
 pragma solidity ^0.8.26;
 
 import {PosmTestSetup} from "@uniswap/v4-periphery/test/shared/PosmTestSetup.sol";
-import {PositionManager} from "@uniswap/v4-periphery/src/PositionManager.sol";
-import {PositionDescriptor} from "@uniswap/v4-periphery/src/PositionDescriptor.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
@@ -17,23 +15,12 @@ import {LiquidityAmounts} from "@uniswap/v4-periphery/src/libraries/LiquidityAmo
 import {QuiverHook} from "../../src/QuiverHook.sol";
 import {QuiverMirror} from "../../src/QuiverMirror.sol";
 
-/// @dev PosmTestSetup.deployPosm() instantiates the v4 PositionManager and PositionDescriptor
-///   via `vm.getCode("<File>.sol:<Contract>")`, which only resolves when their artifacts are
-///   emitted to the build. Nothing else in this compilation unit references the concrete
-///   contracts (only interfaces), and a bare import isn't enough — referencing
-///   `type(T).creationCode` forces the bytecode to be compiled AND its artifact written. This
-///   lives in the test file itself (not a standalone helper) so `forge test --match-path`'s
-///   sparse compilation can never drop it. Nothing here runs; it exists for the build
-///   side-effect. (TransparentUpgradeableProxy — the third vm.getCode target — is already
-///   emitted via PosmTestSetup's own imports.)
-contract ForceArtifacts {
-    function force() external pure returns (uint256) {
-        return type(PositionManager).creationCode.length + type(PositionDescriptor).creationCode.length;
-    }
-}
-
 /// @dev End-to-end + unit coverage for the Quiver hook against a live local v4 stack
-///   (PoolManager + PositionManager + Permit2 from PosmTestSetup).
+///   (PoolManager + PositionManager + Permit2 from PosmTestSetup). The PositionManager /
+///   PositionDescriptor artifacts its setUp() loads via vm.getCode are emitted by the
+///   ForcePosmArtifact / ForceDescriptorArtifact test files — they CANNOT be imported here:
+///   each carries its own optimizer-runs compilation restriction (500 / 1, mirroring
+///   upstream), and importing both into one compilation unit is unsatisfiable.
 contract QuiverE2ETest is PosmTestSetup {
     QuiverHook quiver;
     QuiverMirror mirror;
