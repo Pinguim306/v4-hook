@@ -21,8 +21,9 @@ import {CoilLaunchpad} from "../src/CoilLaunchpad.sol";
 ///     TOKEN_SUPPLY      — supply per launch (wei)
 ///     TICK_LOWER, TICK_UPPER — one-sided range (defaults -6000 / 0)
 ///     PROTOCOL_FEE_BPS / HOLDER_FEE_BPS / BURN_FEE_BPS — default 50 / 30 / 20
-///   Run:
-///     FOUNDRY_PROFILE=e2e forge script script/DeployCoilLaunchpad.s.sol:DeployCoilLaunchpad \
+///   Run under the DEFAULT profile (800 optimizer runs — the settings every deployed Coil
+///   contract is verified against; at e2e's 44444444 runs CoilLaunchpad exceeds EIP-170):
+///     forge script script/DeployCoilLaunchpad.s.sol:DeployCoilLaunchpad \
 ///       --rpc-url $RPC_URL --broadcast --private-key $PK
 contract DeployCoilLaunchpad is Script {
     function run() external returns (CoilLaunchpad pad) {
