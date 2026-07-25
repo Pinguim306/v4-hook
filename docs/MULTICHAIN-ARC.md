@@ -102,6 +102,34 @@ endereço canônico** ✔; PoolManager/POSM/wrapped-native não existem → depl
 - HookMiner por chain (endereço da launchpad muda o CREATE2).
 - Announce/bot/API v1 e Coil Points: decidir agregação por chain vs global.
 
-**Fase 3 — Arc mainnet (quando lançar, ~verão 2026)**
-- Reavaliar licença/disponibilidade oficial do v4.
-- Repetir Fase 1 na mainnet, ligar na UI.
+**Fase 3 — Arc mainnet (LIVE desde 2026-07; chain ID `5042`)**
+
+Runbook — é a Fase 1 repetida com env de produção. Nada de novo a codificar;
+os mesmos scripts servem (`preflight-arc.sh`, `DeployArcV4Stack`,
+`DeployCoilLaunchpad`, `LaunchCoilToken`).
+
+0. **Símbolo no wallet é USDC**, não ETH (o form do MetaMask sugere ETH — corrigir).
+1. `ARC_ENV=mainnet ./preflight-arc.sh` — descobre RPC utilizável (candidatos:
+   `rpc.arc.network`, Infura `arc-mainnet`, QuickNode, dRPC), confirma chain 5042,
+   cancun e Permit2. Explorer esperado: `arcscan.app` (Blockscout).
+2. **Checkpoint de licença ANTES do deploy do stack**: verificar se a Uniswap
+   (ou parceiro) já publicou v4 oficial na Arc mainnet — se sim, usar esses
+   endereços (`POOL_MANAGER=... POSITION_MANAGER=...` no preflight) e pular o
+   passo 3. Se não: deploy próprio de v4-core em mainnet é uso de produção sob
+   BUSL-1.1 até jun/2027 — decisão consciente do operador (grant da governança
+   Uniswap é o caminho formal).
+3. Financiar a wallet de deploy com USDC real (bridges: CCTP/LiFi/relay) e
+   **re-provar a escala de decimais do nativo na mainnet** (`cast balance` —
+   não assumir os 18-dec do testnet).
+4. `DeployArcV4Stack` (perfil e2e) com `POOL_MANAGER_OWNER` = carteira de
+   admin de produção (idealmente multisig; o owner só controla protocol fees
+   do PoolManager e pode renunciar).
+5. `DeployCoilLaunchpad` (perfil default) com carteiras de produção:
+   `FEE_RECIPIENT` = wallet de protocolo, `PLATFORM_TREASURY` = treasury do
+   burn (design v1: ops wallet → compra e queima $COIL na Robinhood),
+   mesmos ticks do piloto (`55200/124200` ≈ $4k de mcap) salvo decisão nova.
+6. Smoke test com `LaunchCoilToken` + conferir LP NFT no dead e owner zerado.
+7. Verificação no Blockscout mainnet (perfil `verify`, 800 runs; stack com as
+   configs anotadas no DEPLOYMENTS.md) e cron `verify-tokens` em matrix
+   (Robinhood + Arc).
+8. Registrar tudo no DEPLOYMENTS.md e ligar a chain na UI (Fase 2).

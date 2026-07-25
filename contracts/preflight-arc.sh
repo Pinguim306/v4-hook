@@ -7,9 +7,17 @@
 #   RPC_URL=... CHAIN_ID=... ./preflight-arc.sh
 set -uo pipefail
 
-# Arc public testnet defaults (mainnet expected summer 2026 — override via env when live).
-RPC_URL="${RPC_URL:-https://rpc.testnet.arc.network}"
-CHAIN_ID="${CHAIN_ID:-5042002}"
+# Defaults: Arc public testnet. For MAINNET (chain 5042, live 2026-07) run with
+#   ARC_ENV=mainnet ./preflight-arc.sh
+# and override RPC_URL if the default guess is unreachable (Infura/QuickNode/dRPC all
+# serve arc-mainnet; MetaMask's built-in entry uses arc-mainnet.infura.io).
+if [ "${ARC_ENV:-testnet}" = "mainnet" ]; then
+    RPC_URL="${RPC_URL:-https://rpc.arc.network}"
+    CHAIN_ID="${CHAIN_ID:-5042}"
+else
+    RPC_URL="${RPC_URL:-https://rpc.testnet.arc.network}"
+    CHAIN_ID="${CHAIN_ID:-5042002}"
+fi
 
 # Canonical singletons that MIGHT already exist on Arc.
 PERMIT2="${PERMIT2:-0x000000000022D473030F116dDEE9F6B43aC78BA3}"
