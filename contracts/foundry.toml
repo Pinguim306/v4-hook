@@ -47,6 +47,23 @@ fs_permissions = [{ access = "read", path = "./" }]
 [profile.e2e.fuzz]
 runs = 256
 
+# Verification profile — MUST mirror the compiler settings the deployed contracts were built
+# with (0.8.26, via-IR, 800 runs, cancun): Blockscout matches bytecode, so verify-tokens.sh and
+# any forge verify-contract run use THIS profile, never e2e (whose 44444444 runs exist only to
+# compile upstream Pool.sol for tests/deploys and produce different bytecode).
+[profile.verify]
+src = "src"
+out = "out-verify"
+libs = ["lib"]
+solc = "0.8.26"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 800
+via_ir = true
+ffi = false
+skip = ["test/**", "script/**"]
+fs_permissions = [{ access = "read", path = "./" }]
+
 # Sandbox profile — used where only the solc-js WASM compiler is reachable (no native solc).
 # solc-js cannot compile the very large e2e compilation unit, so it is skipped here; the
 # lightweight mock-based unit suite gives full logic coverage. Run with:

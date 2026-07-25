@@ -18,7 +18,9 @@ cd "$(dirname "$0")"
 RPC="${RPC:-https://rpc.mainnet.chain.robinhood.com}"
 LAUNCHPAD="${LAUNCHPAD:-0x089450e936d758b4c3E122Aa80A754aBF1bd0FFD}"
 VERIFIER_URL="${VERIFIER_URL:-https://robinhoodchain.blockscout.com/api}"
-export FOUNDRY_PROFILE="${FOUNDRY_PROFILE:-e2e}"
+# Blockscout matches BYTECODE: the profile here must mirror the settings the deployed contracts
+# were compiled with (profile.verify = 800 runs), NOT e2e (44444444 runs, for tests only).
+export FOUNDRY_PROFILE="${FOUNDRY_PROFILE:-verify}"
 SLEEP_BETWEEN="${SLEEP_BETWEEN:-30}"
 
 BLOCKSCOUT_BASE="${VERIFIER_URL%/api}"
